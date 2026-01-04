@@ -1,0 +1,45 @@
+#! /usr/bin/env nix-shell
+#! nix-shell -i bash -p jq github-cli
+
+set -eo pipefail
+
+SCRIPTDIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+cd "$SCRIPTDIR"
+
+. ./util.sh
+
+cd ..
+
+BUILT=$(nix build .#grandCombinedGithubArtifacts --builders-use-substitutes --no-link --json | jq -r '.[0].outputs.out')
+
+echo "Built: $BUILT"
+
+VERSION="$(nix eval .#default.version --raw)"
+echo "Got version: $VERSION"
+
+IFS=$'\n'
+ARTIFACTS=$(find "$BUILT" -name "*.tar.gz")
+unset IFS
+echo "Saw artifacts:\n\n"
+echo "$ARTIFACTS"
+
+TAG=v"$VERSION"
+
+echo ""
+echo "This will tag the current commit as $TAG and upload the above aliases to Git."
+echo ""
+confirm_execution
+
+echo "Tagging at $TAG"
+git tag "$TAG" -f
+echo ""
+
+echo "Pushing tags"
+git push --tags
+echo ""
+
+echo "Creating release $TAG"
+gh release create "$TAG" \
+  ${ARTIFACTS[@]} \
+  --title "$TAG" \
+  --notes ""

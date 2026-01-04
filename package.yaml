@@ -1,0 +1,100 @@
+name:                cpp-notebook-language-server
+version:             0.1.0.0
+
+extra-source-files:
+- README.md
+- CHANGELOG.md
+
+dependencies:
+- base >= 4.7 && < 5
+- lsp-types >= 2.0.0.1
+- monad-logger
+- string-interpolate
+- text
+- unliftio
+
+default-extensions:
+- OverloadedStrings
+- QuasiQuotes
+- NamedFieldPuns
+- RecordWildCards
+- ScopedTypeVariables
+- FlexibleContexts
+- FlexibleInstances
+- LambdaCase
+- ViewPatterns
+- MultiWayIf
+- TupleSections
+- NumericUnderscores
+- TypeApplications
+
+ghc-options:
+- -Wunused-packages
+- -Wall
+- -fno-warn-name-shadowing
+
+library:
+  source-dirs: src
+  dependencies:
+  - aeson
+  - auto-update
+  - containers
+  - filepath
+  - lens
+  - lens-regex-pcre
+  - mtl
+  - myers-diff
+  - network-uri
+  - pcre-light
+  - random
+  - safe
+  - text-rope
+  - time
+  - unliftio-core
+  - uuid
+
+executables:
+  cpp-notebook-language-server:
+    main: Main.hs
+    source-dirs:
+    - app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    - -O2
+    - -W
+    dependencies:
+    - aeson
+    - bytestring
+    - lens
+    - mtl
+    - optparse-applicative
+    - process
+    - retry
+    - cpp-notebook-language-server
+    - safe
+    - unix
+    - unliftio-core
+
+tests:
+  cpp-notebook-language-server-test:
+    main: Main.hs
+    source-dirs:
+    - test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    - -O2
+    - -W
+    dependencies:
+    - exceptions
+    - myers-diff
+    - row-types
+    - cpp-notebook-language-server
+    - QuickCheck
+    - quickcheck-instances
+    - sandwich
+    - sandwich-quickcheck
+    - text-rope

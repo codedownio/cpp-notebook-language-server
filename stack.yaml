@@ -1,0 +1,15 @@
+resolver: nightly-2025-12-22
+
+packages:
+- .
+
+nix:
+  enable: false
+
+system-ghc: true
+
+extra-deps:
+# - language-cpp-0.2.0.27
+
+# - github: harpocrates/language-cpp
+#   commit: 9d509c450d009cc99f1180b3f2f30247dfb1cfce

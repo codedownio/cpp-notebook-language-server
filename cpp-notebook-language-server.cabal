@@ -1,0 +1,165 @@
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.38.1.
+--
+-- see: https://github.com/sol/hpack
+
+name:           cpp-notebook-language-server
+version:        0.1.0.0
+build-type:     Simple
+extra-source-files:
+    README.md
+    CHANGELOG.md
+
+library
+  exposed-modules:
+      Language.LSP.Notebook
+      Language.LSP.Notebook.HeadTailTransformer
+      Language.LSP.Notebook.StripDirective
+      Language.LSP.Transformer
+      Transform.ClientNot
+      Transform.ClientNot.DidSave
+      Transform.ClientReq
+      Transform.ClientRsp
+      Transform.Common
+      Transform.ServerNot
+      Transform.ServerReq
+      Transform.ServerRsp
+      Transform.ServerRsp.Hover
+      Transform.Util
+  other-modules:
+      Paths_cpp_notebook_language_server
+  hs-source-dirs:
+      src
+  default-extensions:
+      OverloadedStrings
+      QuasiQuotes
+      NamedFieldPuns
+      RecordWildCards
+      ScopedTypeVariables
+      FlexibleContexts
+      FlexibleInstances
+      LambdaCase
+      ViewPatterns
+      MultiWayIf
+      TupleSections
+      NumericUnderscores
+      TypeApplications
+  ghc-options: -Wunused-packages -Wall -fno-warn-name-shadowing
+  build-depends:
+      aeson
+    , auto-update
+    , base >=4.7 && <5
+    , containers
+    , filepath
+    , lens
+    , lens-regex-pcre
+    , lsp-types >=2.0.0.1
+    , monad-logger
+    , mtl
+    , myers-diff
+    , network-uri
+    , pcre-light
+    , random
+    , safe
+    , string-interpolate
+    , text
+    , text-rope
+    , time
+    , unliftio
+    , unliftio-core
+    , uuid
+  default-language: Haskell2010
+
+executable cpp-notebook-language-server
+  main-is: Main.hs
+  other-modules:
+      Parsing
+      Process
+      RequestMap
+      Streams
+      Test
+      Paths_cpp_notebook_language_server
+  hs-source-dirs:
+      app
+  default-extensions:
+      OverloadedStrings
+      QuasiQuotes
+      NamedFieldPuns
+      RecordWildCards
+      ScopedTypeVariables
+      FlexibleContexts
+      FlexibleInstances
+      LambdaCase
+      ViewPatterns
+      MultiWayIf
+      TupleSections
+      NumericUnderscores
+      TypeApplications
+  ghc-options: -Wunused-packages -Wall -fno-warn-name-shadowing -threaded -rtsopts -with-rtsopts=-N -O2 -W
+  build-depends:
+      aeson
+    , base >=4.7 && <5
+    , bytestring
+    , cpp-notebook-language-server
+    , lens
+    , lsp-types >=2.0.0.1
+    , monad-logger
+    , mtl
+    , optparse-applicative
+    , process
+    , retry
+    , safe
+    , string-interpolate
+    , text
+    , unix
+    , unliftio
+    , unliftio-core
+  default-language: Haskell2010
+
+test-suite cpp-notebook-language-server-test
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  other-modules:
+      Test.Hover
+      Test.Transformer.HeadTail
+      Test.Transformer.StripDirective
+      TestLib.Common
+      TestLib.Core
+      TestLib.Generators
+      TestLib.Util
+      Paths_cpp_notebook_language_server
+  hs-source-dirs:
+      test
+  default-extensions:
+      OverloadedStrings
+      QuasiQuotes
+      NamedFieldPuns
+      RecordWildCards
+      ScopedTypeVariables
+      FlexibleContexts
+      FlexibleInstances
+      LambdaCase
+      ViewPatterns
+      MultiWayIf
+      TupleSections
+      NumericUnderscores
+      TypeApplications
+  ghc-options: -Wunused-packages -Wall -fno-warn-name-shadowing -threaded -rtsopts -with-rtsopts=-N -O2 -W
+  build-depends:
+      QuickCheck
+    , base >=4.7 && <5
+    , cpp-notebook-language-server
+    , exceptions
+    , lsp-types >=2.0.0.1
+    , monad-logger
+    , myers-diff
+    , quickcheck-instances
+    , row-types
+    , sandwich
+    , sandwich-quickcheck
+    , string-interpolate
+    , text
+    , text-rope
+    , unliftio
+  default-language: Haskell2010
