@@ -1,4 +1,5 @@
 {
+  inputs.cling-parser.url = "github:codedownio/cling-parser/main";
   inputs.flake-utils.url = "github:numtide/flake-utils";
   inputs.haskellNix.url = "github:input-output-hk/haskell.nix/master";
   inputs.gitignore = {
@@ -8,7 +9,7 @@
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/release-25.05";
   inputs.nixpkgsMaster.url = "github:NixOS/nixpkgs/master";
 
-  outputs = { self, flake-utils, gitignore, haskellNix, nixpkgs, nixpkgsMaster }:
+  outputs = { self, cling-parser, flake-utils, gitignore, haskellNix, nixpkgs, nixpkgsMaster }:
     flake-utils.lib.eachSystem ["x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin"] (system:
       let
         compiler-nix-name = "ghc9122";
@@ -55,10 +56,7 @@
                 pcre
                 zlib
 
-                # For C++ conversion code
-                cling.unwrapped
-                jsoncpp
-                llvm.dev
+                cling-parser.outputs.packages.x86_64-linux.minimal-parser
               ];
             };
           };
