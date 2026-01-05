@@ -56,7 +56,7 @@
                 pcre
                 zlib
 
-                cling-parser.outputs.packages.x86_64-linux.minimal-parser
+                cling-parser.outputs.packages.${system}.minimal-parser
               ];
             };
           };
@@ -65,6 +65,8 @@
             inherit (pkgs) cabal2nix stack;
 
             default = static;
+
+            inherit (cling-parser.outputs.packages.${system}) minimal-parser;
 
             static = flakeStatic.packages."cpp-notebook-language-server:exe:cpp-notebook-language-server";
             dynamic = flake.packages."cpp-notebook-language-server:exe:cpp-notebook-language-server";

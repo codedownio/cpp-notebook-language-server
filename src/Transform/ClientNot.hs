@@ -61,7 +61,7 @@ transformClientNot' sendExtraNotification SMethod_TextDocumentDidOpen params = w
   let t = params ^. (textDocument . text)
   let ls = Rope.fromText t
   let txParams = if isNotebook u then transformerParams else idTransformerParams
-  let (ls', transformer' :: CppNotebookTransformer) = project txParams ls
+  (ls', transformer' :: CppNotebookTransformer) <- liftIO $ project txParams ls
   TransformerState {..} <- ask
   (newPath, referenceRegex) <- do
     identifier <- makeUUID' 15
@@ -113,7 +113,7 @@ transformClientNot' sendExtraNotification SMethod_TextDocumentDidOpen params = w
 transformClientNot' _ SMethod_TextDocumentDidChange params = whenAnything params $ modifyTransformer params $ \ds@(DocumentState {transformer=tx, curLines=before, curLines'=before', origUri, newUri, debouncedDidChange}) -> do
   let txParams = if isNotebook origUri then transformerParams else idTransformerParams
   let changeEvents = params ^. contentChanges
-  let (changeEvents', tx') = handleDiffMulti txParams before changeEvents tx
+  (changeEvents', tx') <- liftIO $ handleDiffMulti txParams before changeEvents tx
   let after = applyChanges changeEvents before
   let after' = applyChanges changeEvents' before'
 

@@ -5,6 +5,7 @@
 
 module Language.LSP.Notebook.StripDirective where
 
+import Control.Monad.IO.Class
 import Data.Foldable
 import Data.Sequence hiding (zip)
 import qualified Data.Set as Set
@@ -25,9 +26,9 @@ instance Transformer StripDirective where
 
   getParams (StripDirective enable _) = SDParams enable
 
-  project :: Params StripDirective -> Doc -> (Doc, StripDirective)
-  project (SDParams False) doc = (doc, StripDirective False mempty)
-  project (SDParams True) (docToList -> ls) = go mempty mempty (zip ls [0..])
+  project :: MonadIO m => Params StripDirective -> Doc -> m (Doc, StripDirective)
+  project (SDParams False) doc = return (doc, StripDirective False mempty)
+  project (SDParams True) (docToList -> ls) = return $ go mempty mempty (zip ls [0..])
     where
       go affectedLines processedLines [] = (listToDoc (toList processedLines), StripDirective True affectedLines)
       go affectedLines processedLines ((line, n):rest)

@@ -2,6 +2,7 @@
 
 module Language.LSP.Notebook.HeadTailTransformer where
 
+import Control.Monad.IO.Class ()
 import qualified Data.List as L
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -18,7 +19,7 @@ instance Transformer HeadTailTransformer where
 
   getParams (HeadTailTransformer initialLines finalLines _ _ _) = (initialLines, finalLines)
 
-  project (initialLines, finalLines) ls = (beginning <> ls <> ending, tx)
+  project (initialLines, finalLines) ls = return (beginning <> ls <> ending, tx)
     where
       beginning = case initialLines of
         [] -> ""

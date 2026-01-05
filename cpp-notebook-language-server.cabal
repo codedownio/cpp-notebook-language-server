@@ -14,9 +14,15 @@ extra-source-files:
 library
   exposed-modules:
       Language.LSP.Notebook
+      Language.LSP.Notebook.CppParser
+      Language.LSP.Notebook.DeclarationSifter
+      Language.LSP.Notebook.ExecutableWrapper
       Language.LSP.Notebook.HeadTailTransformer
+      Language.LSP.Notebook.ImportSifter
       Language.LSP.Notebook.StripDirective
+      Language.LSP.Test
       Language.LSP.Transformer
+      Language.LSP.TransformTest
       Transform.ClientNot
       Transform.ClientNot.DidSave
       Transform.ClientReq
@@ -50,6 +56,7 @@ library
       aeson
     , auto-update
     , base >=4.7 && <5
+    , bytestring
     , containers
     , filepath
     , lens
@@ -69,6 +76,7 @@ library
     , unliftio
     , unliftio-core
     , uuid
+    , vector
   default-language: Haskell2010
 
 executable cpp-notebook-language-server
@@ -122,6 +130,7 @@ test-suite cpp-notebook-language-server-test
   main-is: Main.hs
   other-modules:
       Test.Hover
+      Test.Transformer.DeclarationSifter
       Test.Transformer.HeadTail
       Test.Transformer.StripDirective
       TestLib.Common
@@ -151,6 +160,7 @@ test-suite cpp-notebook-language-server-test
     , base >=4.7 && <5
     , cpp-notebook-language-server
     , exceptions
+    , lens
     , lsp-types >=2.0.0.1
     , monad-logger
     , myers-diff

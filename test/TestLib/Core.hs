@@ -17,29 +17,28 @@ import TestLib.Util
 import UnliftIO.Exception
 
 
-testChange :: forall a. (
-  Transformer a, Eq a, Show a
-  ) => Params a -> Doc -> TextDocumentContentChangeEvent -> Property
+testChange :: forall a m. (
+  Transformer a, Eq a, Show a, MonadIO m
+  ) => Params a -> Doc -> TextDocumentContentChangeEvent -> m Property
 testChange = testChange' @a (const [])
 
-testChange' :: forall a. (
-  Transformer a, Eq a, Show a
-  ) => ([TextDocumentContentChangeEvent] -> [Property]) -> Params a -> Doc -> TextDocumentContentChangeEvent -> Property
-testChange' extraProps params docLines change = conjoin ([
-  -- Applying the change' returned from handleDiff to the projected before value gives expected projected value
-  afterFromChange' === projectedAfter
+testChange' :: forall a m. (
+  Transformer a, Eq a, Show a, MonadIO m
+  ) => ([TextDocumentContentChangeEvent] -> [Property]) -> Params a -> Doc -> TextDocumentContentChangeEvent -> m Property
+testChange' extraProps params docLines change = do
+  -- Expected un-projected document after the change
+  let docLines' = applyChanges [change] docLines
 
-  -- The re-projected transformer matches the one we got back from handleDiff
-  , reprojectedTransformer === transformer'
-  ] <> extraProps changes)
+  (projectedBefore, transformer :: a) <- project params docLines
+  (projectedAfter, reprojectedTransformer :: a) <- project params docLines'
 
-  where
-    -- Expected un-projected document after the change
-    docLines' = applyChanges [change] docLines
+  (changes, transformer') <- handleDiff params docLines change transformer
+  let afterFromChange' = applyChanges changes projectedBefore
 
-    (projectedBefore, transformer :: a) = project params docLines
-    (projectedAfter, reprojectedTransformer :: a) = project params docLines'
+  return $ conjoin ([
+    -- Applying the change' returned from handleDiff to the projected before value gives expected projected value
+    afterFromChange' === projectedAfter
 
-    (changes, transformer') = handleDiff params docLines change transformer
-
-    afterFromChange' = applyChanges changes projectedBefore
+    -- The re-projected transformer matches the one we got back from handleDiff
+    , reprojectedTransformer === transformer'
+    ] <> extraProps changes)
