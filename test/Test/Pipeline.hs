@@ -2,6 +2,7 @@
 
 module Test.Pipeline where
 
+import Data.String.Interpolate
 import qualified Data.Text as T
 import Language.LSP.Notebook.DeclarationSifter
 import Language.LSP.Notebook.ExecutableWrapper  
@@ -11,35 +12,35 @@ import Test.Sandwich
 
 -- Test input: mixed declarations and executable statements (like a notebook)
 testInput :: T.Text
-testInput = T.unlines
-  [ "#include <iostream>"
-  , "using namespace std;"
-  , "cout << \"hello\" << endl;"
-  , "int x = 42;"
-  , "class MyClass {};"
-  , "void func() {}"
-  , "cout << \"after\" << endl;"
-  ]
+testInput = [__i|
+  \#include <iostream>
+  using namespace std;
+  cout << "hello" << endl;
+  int x = 42;
+  class MyClass {};
+  void func() {}
+  cout << "after" << endl;
+  |]
 
 -- Expected final output after full pipeline
 expectedFinalOutput :: T.Text  
-expectedFinalOutput = T.unlines
-  [ "#include <iostream>"
-  , "using namespace std;"
-  , "class MyClass {};"
-  , "void func() {}"
-  , "int x = 42;"
-  , ""
-  , "void __notebook_exec() {"
-  , "  cout << \"hello\" << endl;"
-  , "  cout << \"after\" << endl;"
-  , "}"
-  , ""
-  , "int main() {"
-  , "  __notebook_exec();"
-  , "  return 0;"
-  , "}"
-  ]
+expectedFinalOutput = [__i|
+  \#include <iostream>
+  using namespace std;
+  class MyClass {};
+  void func() {}
+  int x = 42;
+
+  void __notebook_exec() {
+    cout << "hello" << endl;
+    cout << "after" << endl;
+  }
+
+  int main() {
+    __notebook_exec();
+    return 0;
+  }
+  |]
 
 spec :: TopSpec
 spec = describe "Full Pipeline" $ do

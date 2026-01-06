@@ -2,6 +2,7 @@
 
 module Test.Transformer.ExecutableWrapper where
 
+import Data.String.Interpolate
 import qualified Data.Text as T
 import Language.LSP.Notebook.ExecutableWrapper
 import Language.LSP.Transformer
@@ -9,29 +10,29 @@ import Test.Sandwich
 
 -- Test input with mixed declarations and executable statements (raw input)
 testCode :: T.Text
-testCode = T.unlines
-  [ "#include <iostream>"
-  , "using namespace std;"
-  , "cout << \"hello\" << endl;"
-  , "int x = 42;"
-  , "class MyClass {};"
-  , "void func() {}"
-  , "cout << \"after\" << endl;"
-  ]
+testCode = [__i|
+  \#include <iostream>
+  using namespace std;
+  cout << "hello" << endl;
+  int x = 42;
+  class MyClass {};
+  void func() {}
+  cout << "after" << endl;
+  |]
 
 -- Test input after DeclarationSifter (properly sifted - this is what ExecutableWrapper should receive)
 siftedTestCode :: T.Text
-siftedTestCode = T.unlines
-  [ "#include <iostream>"
-  , "using namespace std;"
-  , "class MyClass {};"
-  , "void func() {}"
-  , "int x = 42;"
-  , ""
-  , "cout << \"hello\" << endl;"
-  , ""
-  , "cout << \"after\" << endl;"
-  ]
+siftedTestCode = [__i|
+  \#include <iostream>
+  using namespace std;
+  class MyClass {};
+  void func() {}
+  int x = 42;
+
+  cout << "hello" << endl;
+
+  cout << "after" << endl;
+  |]
 
 spec :: TopSpec
 spec = describe "ExecutableWrapper" $ do
@@ -63,12 +64,12 @@ spec = describe "ExecutableWrapper" $ do
       (firstLine:_) -> T.isPrefixOf "#include" firstLine `shouldBe` True
 
   it "should handle input with no executable statements" $ do
-    let declarationsOnly = T.unlines
-          [ "#include <iostream>"
-          , "using namespace std;"
-          , "class MyClass {};"
-          , "int x = 42;"
-          ]
+    let declarationsOnly = [__i|
+          \#include <iostream>
+          using namespace std;
+          class MyClass {};
+          int x = 42;
+          |]
         inputDoc = listToDoc (T.splitOn "\n" declarationsOnly)
     (_, wrapper :: ExecutableWrapper) <- project (ExecutableWrapperParams "__notebook_exec" "minimal-parser") inputDoc
     

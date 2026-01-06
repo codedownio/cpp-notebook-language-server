@@ -34,26 +34,26 @@ testCode = [__i|
 
 -- Expected output with declarations properly sifted and multi-line structures preserved
 expectedSiftedOutput :: T.Text
-expectedSiftedOutput = T.unlines
-  [ "#include <iostream>"
-  , "#include <vector>"
-  , "using namespace std;"
-  , "class MyClass {"
-  , "public:"
-  , "    int value;"
-  , "    void print() { cout << \"Class method\" << endl; }"
-  , "};"
-  , "int x = 42;"
-  , ""
-  , "// This is a comment"
-  , ""
-  , ""
-  , "cout << \"Hello from the top!\" << endl;"
-  , ""
-  , ""
-  , "cout << \"After class definition\" << endl;"
-  , ""
-  ]
+expectedSiftedOutput = [__i|
+  \#include <iostream>
+  \#include <vector>
+  using namespace std;
+  class MyClass {
+  public:
+      int value;
+      void print() { cout << "Class method" << endl; }
+  };
+  int x = 42;
+
+  // This is a comment
+
+
+  cout << "Hello from the top!" << endl;
+
+
+  cout << "After class definition" << endl;
+
+  |]
 
 spec :: TopSpec
 spec = describe "DeclarationSifter" $ do
