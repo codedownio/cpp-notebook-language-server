@@ -39,12 +39,12 @@ type CppNotebookTransformerV2 =
 
 transformerParamsV2 :: Params CppNotebookTransformerV2  
 transformerParamsV2 =
-  DeclarationSifterParams "minimal-parser"
+  DeclarationSifterParams "minimal-parser" True "__notebook_exec"  -- Now handles both sifting and wrapping
   :> ExecutableWrapperParams "__notebook_exec" "minimal-parser"
   :> (["int main() {", "  __notebook_exec();", "  return 0;"], ["}"])
 
 idTransformerParamsV2 :: Params CppNotebookTransformerV2
 idTransformerParamsV2 =
-  DeclarationSifterParams "true"  -- dummy command that does nothing
+  DeclarationSifterParams "true" False ""  -- dummy command that does nothing, no wrapping
   :> ExecutableWrapperParams "__notebook_exec" "true" 
   :> ([], [])
