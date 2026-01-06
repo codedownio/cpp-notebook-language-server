@@ -4,8 +4,6 @@ import Data.String.Interpolate
 import qualified Data.Text as T
 import Language.LSP.Notebook
 import Language.LSP.Notebook.DeclarationSifter
-import Language.LSP.Notebook.ExecutableWrapper
-import Language.LSP.Notebook.HeadTailTransformer
 import Language.LSP.Transformer
 
 -- Sample C++ notebook code with mixed declarations and executable statements
@@ -50,10 +48,10 @@ main = do
   putStrLn $ T.unpack sampleCppCode
   
   putStrLn "\n--- Applying V2 Transformer Chain ---"
-  putStrLn "Chain: ImportSifter :> ExecutableWrapper :> HeadTailTransformer"
+  putStrLn "Chain: DeclarationSifter (with wrapping only - no main wrapper)"
   
   let inputDoc = listToDoc (T.splitOn "\n" sampleCppCode)
-  (transformedDoc, transformer :: CppNotebookTransformerV2) <- project transformerParamsV2 inputDoc
+  (transformedDoc, transformer :: CppNotebookTransformer) <- project transformerParams inputDoc
   
   putStrLn "\n--- Transformed Code ---"
   putStrLn $ T.unpack $ T.intercalate "\n" $ docToList transformedDoc
@@ -64,18 +62,14 @@ main = do
   putStrLn "\n=== Testing Individual Components ==="
   
   putStrLn "\n--- Step 1: DeclarationSifter Only ---"
-  (step1Doc, _ :: DeclarationSifter) <- project (DeclarationSifterParams "minimal-parser" True "__notebook_exec") inputDoc
+  (step1Doc, _ :: DeclarationSifter) <- project (DeclarationSifterParams "minimal-parser" "__notebook_exec") inputDoc
   putStrLn "After moving declarations to top and wrapping executables:"
   putStrLn $ T.unpack $ T.intercalate "\n" $ docToList step1Doc
   
-  putStrLn "\n--- Step 2: ExecutableWrapper Only ---" 
-  (step2Doc, _ :: ExecutableWrapper) <- project (ExecutableWrapperParams "__exec" "minimal-parser") inputDoc
-  putStrLn "After wrapping executable statements:"
-  putStrLn $ T.unpack $ T.intercalate "\n" $ docToList step2Doc
+  putStrLn "\n--- Step 2: ExecutableWrapper (now integrated into DeclarationSifter) ---" 
+  putStrLn "ExecutableWrapper functionality is now part of DeclarationSifter"
   
-  putStrLn "\n--- Step 3: HeadTailTransformer Only ---"
-  (step3Doc, _ :: HeadTailTransformer) <- project (["int main() {"], ["}"]) inputDoc  
-  putStrLn "After adding main function wrapper:"
-  putStrLn $ T.unpack $ T.intercalate "\n" $ docToList step3Doc
+  putStrLn "\n--- Step 3: Main wrapper (removed) ---"
+  putStrLn "Main function wrapping has been removed as requested"
   
   putStrLn "\n=== Transformation Complete ==="

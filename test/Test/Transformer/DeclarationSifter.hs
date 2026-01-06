@@ -58,10 +58,14 @@ expectedSiftedOutput = [__i|
 
 spec :: TopSpec
 spec = describe "DeclarationSifter" $ do
-  it "should preserve complete multi-line declarations" $ do
+  it "should preserve complete multi-line declarations and wrap executables" $ do
     let inputDoc = listToDoc (T.splitOn "\n" testCode)
-    (outputDoc, _ :: DeclarationSifter) <- project (DeclarationSifterParams "minimal-parser" False "") inputDoc
+    (outputDoc, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "minimal-parser" "__test_exec") inputDoc
     let outputLines = docToList outputDoc
+        outputText = T.intercalate "\n" outputLines
+
+    -- Check that wrapper was created (since we have executable statements)
+    hasExecutableWrapper sifter `shouldBe` True
 
     -- The key test: class should be preserved as a complete 5-line block
     let classStartIdx = findClassStart outputLines
@@ -76,10 +80,13 @@ spec = describe "DeclarationSifter" $ do
                                  , "};"
                                  ]
         classBlock `shouldBe` expectedClassBlock
+        
+    -- Should also have wrapped the executable statements
+    T.isInfixOf "void __test_exec() {" outputText `shouldBe` True
 
   it "should move declarations to top in correct order" $ do
     let inputDoc = listToDoc (T.splitOn "\n" testCode)
-    (outputDoc, _ :: DeclarationSifter) <- project (DeclarationSifterParams "minimal-parser" False "") inputDoc
+    (outputDoc, _ :: DeclarationSifter) <- project (DeclarationSifterParams "minimal-parser" "") inputDoc
     let outputLines = docToList outputDoc
 
     -- Check that includes come first, then using, then class, then variables
@@ -90,7 +97,7 @@ spec = describe "DeclarationSifter" $ do
 
   it "should not fragment multi-line structures" $ do
     let inputDoc = listToDoc (T.splitOn "\n" testCode)
-    (outputDoc, _ :: DeclarationSifter) <- project (DeclarationSifterParams "minimal-parser" False "") inputDoc
+    (outputDoc, _ :: DeclarationSifter) <- project (DeclarationSifterParams "minimal-parser" "") inputDoc
     let outputText = T.intercalate "\n" $ docToList outputDoc
 
     -- Anti-regression test: ensure class is not fragmented
@@ -107,7 +114,7 @@ spec = describe "DeclarationSifter" $ do
 
   it "should wrap executable statements when requested" $ do
     let inputDoc = listToDoc (T.splitOn "\n" testCode)
-    (outputDoc, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "minimal-parser" True "__notebook_exec") inputDoc
+    (outputDoc, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "minimal-parser" "__notebook_exec") inputDoc
     let outputText = T.intercalate "\n" $ docToList outputDoc
 
     -- Check that wrapper was created
@@ -122,34 +129,34 @@ spec = describe "DeclarationSifter" $ do
   describe "position transformations" $ do
     it "should transform positions correctly after sifting" $ do
       let inputDoc = listToDoc (T.splitOn "\n" testCode)
-      (_, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "minimal-parser" False "") inputDoc
+      (_, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "minimal-parser" "") inputDoc
 
       -- Original line 7 (cout << "Hello from the top!" << endl;) moves to later position
       -- Original line 11 (class MyClass {) moves earlier
-      case transformPosition (DeclarationSifterParams "minimal-parser" False "") sifter (Position 7 5) of
+      case transformPosition (DeclarationSifterParams "minimal-parser" "") sifter (Position 7 5) of
         Nothing -> error "Position transformation failed"
         Just (Position newLine _) -> (newLine > 7) `shouldBe` True  -- Should move later
 
-      case transformPosition (DeclarationSifterParams "minimal-parser" False "") sifter (Position 11 2) of
+      case transformPosition (DeclarationSifterParams "minimal-parser" "") sifter (Position 11 2) of
         Nothing -> error "Position transformation failed"
         Just (Position newLine _) -> (newLine < 11) `shouldBe` True  -- Should move earlier
 
     it "should untransform positions correctly" $ do
       let inputDoc = listToDoc (T.splitOn "\n" testCode)
-      (_, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "minimal-parser" False "") inputDoc
+      (_, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "minimal-parser" "") inputDoc
 
       -- Test round-trip: transform then untransform should give original position
       let originalPos = Position 5 10
-      case transformPosition (DeclarationSifterParams "minimal-parser" False "") sifter originalPos of
+      case transformPosition (DeclarationSifterParams "minimal-parser" "") sifter originalPos of
         Nothing -> error "Transform failed"
         Just transformedPos ->
-          case untransformPosition (DeclarationSifterParams "minimal-parser" False "") sifter transformedPos of
+          case untransformPosition (DeclarationSifterParams "minimal-parser" "") sifter transformedPos of
             Nothing -> error "Untransform failed"
             Just finalPos -> finalPos `shouldBe` originalPos
 
     it "should handle wrapper positions when wrapping is enabled" $ do
       let inputDoc = listToDoc (T.splitOn "\n" testCode)
-      (outputDoc, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "minimal-parser" True "__notebook_exec") inputDoc
+      (outputDoc, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "minimal-parser" "__notebook_exec") inputDoc
       let outputLines = docToList outputDoc
 
       -- Find where the wrapper function starts
@@ -158,7 +165,7 @@ spec = describe "DeclarationSifter" $ do
         Just wrapperIdx -> do
           -- Position inside wrapper should be adjusted
           let posInWrapper = Position (fromIntegral wrapperIdx + 1) 2
-          case untransformPosition (DeclarationSifterParams "minimal-parser" True "__notebook_exec") sifter posInWrapper of
+          case untransformPosition (DeclarationSifterParams "minimal-parser" "__notebook_exec") sifter posInWrapper of
             Nothing -> error "Untransform of wrapper position failed"
             Just _ -> return ()  -- Just verify it doesn't fail
   where

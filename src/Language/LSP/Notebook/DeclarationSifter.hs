@@ -23,14 +23,13 @@ data DeclarationSifter = DeclarationSifter
 
 data DeclarationSifterParams = DeclarationSifterParams
   { parserCommand :: FilePath
-  , wrapExecutables :: Bool  -- Whether to wrap non-declaration lines in a function
   , execFunctionName :: Text  -- Name of the wrapper function (e.g. "__notebook_exec")
   } deriving Show
 
 instance Transformer DeclarationSifter where
   type Params DeclarationSifter = DeclarationSifterParams
 
-  getParams (DeclarationSifter _ _ _ _) = DeclarationSifterParams "minimal-parser" True "__notebook_exec"
+  getParams (DeclarationSifter _ _ _ _) = DeclarationSifterParams "minimal-parser" "__notebook_exec"
 
   project :: MonadIO m => Params DeclarationSifter -> Doc -> m (Doc, DeclarationSifter)
   project params doc = do
@@ -41,8 +40,8 @@ instance Transformer DeclarationSifter where
       Right declarations -> do
         let (siftedLines, remainingLines, siftedIndices) = siftDeclarations originalLines declarations
 
-        -- Check if we should wrap remaining executable lines
-        if wrapExecutables params && not (null remainingLines) && any (not . T.null . T.strip) remainingLines
+        -- Always wrap remaining executable lines (if any exist)
+        if not (null remainingLines) && any (not . T.null . T.strip) remainingLines
           then do
             let wrappedLines = wrapInFunction (execFunctionName params) remainingLines
                 allLines = siftedLines ++ wrappedLines

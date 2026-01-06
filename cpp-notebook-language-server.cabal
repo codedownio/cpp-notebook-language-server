@@ -16,8 +16,6 @@ library
       Language.LSP.Notebook
       Language.LSP.Notebook.CppParser
       Language.LSP.Notebook.DeclarationSifter
-      Language.LSP.Notebook.ExecutableWrapper
-      Language.LSP.Notebook.HeadTailTransformer
       Language.LSP.Notebook.ImportSifter
       Language.LSP.Test
       Language.LSP.Transformer
@@ -131,8 +129,6 @@ test-suite cpp-notebook-language-server-test
       Test.Hover
       Test.Pipeline
       Test.Transformer.DeclarationSifter
-      Test.Transformer.ExecutableWrapper
-      Test.Transformer.HeadTail
       TestLib.Common
       TestLib.Core
       TestLib.Generators
