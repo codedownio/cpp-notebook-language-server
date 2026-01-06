@@ -1,5 +1,4 @@
 {
-  inputs.cling-parser.url = "github:codedownio/cling-parser/main";
   inputs.flake-utils.url = "github:numtide/flake-utils";
   inputs.haskellNix.url = "github:input-output-hk/haskell.nix/master";
   inputs.gitignore = {
@@ -9,7 +8,7 @@
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/release-25.05";
   inputs.nixpkgsMaster.url = "github:NixOS/nixpkgs/master";
 
-  outputs = { self, cling-parser, flake-utils, gitignore, haskellNix, nixpkgs, nixpkgsMaster }:
+  outputs = { self, flake-utils, gitignore, haskellNix, nixpkgs, nixpkgsMaster }:
     flake-utils.lib.eachSystem ["x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin"] (system:
       let
         compiler-nix-name = "ghc9122";
@@ -45,6 +44,59 @@
           tar -czvf $out/$name.tar.gz -C to_zip .
         '';
 
+        # Build our minimal parser (unwrapped)
+        cling-parser-unwrapped = pkgs.clangStdenv.mkDerivation {
+          pname = "minimal-cling-parser";
+          version = "0.1.0";
+
+          src = ./cling-parser;
+
+          nativeBuildInputs = [ pkgs.cmake ];
+          buildInputs = with pkgs; [
+            cling.unwrapped
+            llvmPackages_18.llvm
+          ];
+
+          cmakeBuildType = "Release";
+
+          meta = with pkgs.lib; {
+            description = "Minimal C++ parser using Cling interpreter";
+            license = licenses.bsd3;
+            platforms = platforms.unix;
+            mainProgram = "cling-parser";
+          };
+        };
+
+        # Wrapped version with proper cling flags
+        cling-parser = cling-parser-unwrapped.overrideAttrs (oldAttrs: {
+          nativeBuildInputs = oldAttrs.nativeBuildInputs ++ [ pkgs.makeWrapper ];
+
+          # cling-parser needs a collection of flags to start up properly, so wrap it by default.
+          # We'll provide the unwrapped version as a passthru
+          flags = pkgs.cling.flags ++ [
+            "-resource-dir"
+            "${pkgs.cling.unwrapped}"
+            "-L"
+            "${pkgs.cling.unwrapped}/lib"
+            "-l"
+            "${pkgs.cling.unwrapped}/lib/cling.so"
+          ];
+
+          fixupPhase = ''
+            runHook preFixup
+
+            wrapProgram $out/bin/cling-parser \
+              --argv0 $out/bin/.cling-parser-wrapped \
+              --add-flags "$flags"
+
+            runHook postFixup
+          '';
+
+          passthru = (oldAttrs.passthru or { }) // {
+            unwrapped = cling-parser-unwrapped;
+          };
+        });
+
       in
         {
           devShells = {
@@ -56,7 +108,7 @@
                 pcre
                 zlib
 
-                cling-parser.outputs.packages.${system}.cling-parser
+                cling-parser
               ];
             };
           };
@@ -66,7 +118,7 @@
 
             default = static;
 
-            inherit (cling-parser.outputs.packages.${system}) cling-parser;
+            inherit cling-parser;
 
             static = flakeStatic.packages."cpp-notebook-language-server:exe:cpp-notebook-language-server";
             dynamic = flake.packages."cpp-notebook-language-server:exe:cpp-notebook-language-server";

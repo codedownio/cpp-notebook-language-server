@@ -1,0 +1,18 @@
+
+#include <iostream>
+
+using namespace std;
+
+int x = 42;
+
+void myFunction(int param) {
+    return;
+}
+
+class MyClass {
+public:
+    int member;
+    void method();
+ };
+
+cout << "hello" << endl;
