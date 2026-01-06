@@ -62,7 +62,7 @@ main = do
   putStrLn "\n=== Testing Individual Components ==="
   
   putStrLn "\n--- Step 1: DeclarationSifter Only ---"
-  (step1Doc, _ :: DeclarationSifter) <- project (DeclarationSifterParams "minimal-parser" "__notebook_exec") inputDoc
+  (step1Doc, _ :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
   putStrLn "After moving declarations to top and wrapping executables:"
   putStrLn $ T.unpack $ T.intercalate "\n" $ docToList step1Doc
   

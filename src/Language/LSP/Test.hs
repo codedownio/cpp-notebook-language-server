@@ -34,17 +34,17 @@ cout << "hello: " << y << endl;
 
 main :: IO ()
 main = do
-  putStrLn "=== Testing minimal-parser integration ==="
+  putStrLn "=== Testing cling-parser integration ==="
   putStrLn "\n--- Input C++ code ---"
   putStrLn $ T.unpack testCode
 
-  putStrLn "\n--- Calling minimal-parser ---"
-  (exitCode, stdout, stderr) <- readCreateProcessWithExitCode (proc "minimal-parser" []) (T.unpack testCode)
+  putStrLn "\n--- Calling cling-parser ---"
+  (exitCode, stdout, stderr) <- readCreateProcessWithExitCode (proc "cling-parser" []) (T.unpack testCode)
 
   case exitCode of
     ExitSuccess -> do
       let jsonOutput = T.pack stdout
-      putStrLn "minimal-parser output:"
+      putStrLn "cling-parser output:"
       putStrLn stdout
 
       putStrLn "\n--- Parsing with CppParser ---"
@@ -64,7 +64,7 @@ main = do
           mapM_ (putStrLn . ("  - " ++) . show) executables
 
     ExitFailure code -> do
-      putStrLn $ "minimal-parser failed with exit code: " ++ show code
+      putStrLn $ "cling-parser failed with exit code: " ++ show code
       putStrLn "stderr:"
       putStrLn stderr
 

@@ -56,7 +56,7 @@
                 pcre
                 zlib
 
-                cling-parser.outputs.packages.${system}.minimal-parser
+                cling-parser.outputs.packages.${system}.cling-parser
               ];
             };
           };
@@ -66,7 +66,7 @@
 
             default = static;
 
-            inherit (cling-parser.outputs.packages.${system}) minimal-parser;
+            inherit (cling-parser.outputs.packages.${system}) cling-parser;
 
             static = flakeStatic.packages."cpp-notebook-language-server:exe:cpp-notebook-language-server";
             dynamic = flake.packages."cpp-notebook-language-server:exe:cpp-notebook-language-server";

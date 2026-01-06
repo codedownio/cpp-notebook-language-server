@@ -24,7 +24,7 @@ data ImportSifterParams = ImportSifterParams
 instance Transformer ImportSifter where
   type Params ImportSifter = ImportSifterParams
 
-  getParams (ImportSifter _) = ImportSifterParams "minimal-parser"
+  getParams (ImportSifter _) = ImportSifterParams "cling-parser"
 
   project :: MonadIO m => Params ImportSifter -> Doc -> m (Doc, ImportSifter)
   project params doc = do
@@ -49,7 +49,7 @@ parseCppCode ImportSifterParams{parserCommand} doc = do
   (exitCode, stdout, stderr) <- readCreateProcessWithExitCode (proc parserCommand []) input
   case exitCode of
     ExitSuccess -> return $ parseCppDeclarations (T.pack stdout)
-    ExitFailure _ -> return $ Left ("minimal-parser failed: " ++ stderr)
+    ExitFailure _ -> return $ Left ("cling-parser failed: " ++ stderr)
 
 docToText :: Doc -> Text  
 docToText = T.intercalate "\n" . docToList

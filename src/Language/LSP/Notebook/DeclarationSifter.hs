@@ -29,7 +29,7 @@ data DeclarationSifterParams = DeclarationSifterParams
 instance Transformer DeclarationSifter where
   type Params DeclarationSifter = DeclarationSifterParams
 
-  getParams (DeclarationSifter _ _ _ _) = DeclarationSifterParams "minimal-parser" "__notebook_exec"
+  getParams (DeclarationSifter _ _ _ _) = DeclarationSifterParams "cling-parser" "__notebook_exec"
 
   project :: MonadIO m => Params DeclarationSifter -> Doc -> m (Doc, DeclarationSifter)
   project params doc = do
@@ -71,14 +71,14 @@ instance Transformer DeclarationSifter where
     -- Then undo sifting transformation
     in Just $ untransformUsingIndices indices unwrappedPos
 
--- Parse C++ code using minimal-parser
+-- Parse C++ code using cling-parser
 parseCppCode :: MonadIO m => DeclarationSifterParams -> Doc -> m (Either String [CppDeclaration])
 parseCppCode DeclarationSifterParams{parserCommand} doc = do
   let input = T.unpack (docToText doc)
   (exitCode, stdout, stderr) <- readCreateProcessWithExitCode (proc parserCommand []) input
   case exitCode of
     ExitSuccess -> return $ parseCppDeclarations (T.pack stdout)
-    ExitFailure _ -> return $ Left ("minimal-parser failed: " ++ stderr)
+    ExitFailure _ -> return $ Left ("cling-parser failed: " ++ stderr)
 
 docToText :: Doc -> Text
 docToText = T.intercalate "\n" . docToList
@@ -138,13 +138,13 @@ extractLinesForRange indexedLines (start, end) =
 data LineType = LineType_Include | LineType_Using | LineType_Class | LineType_Function | LineType_Var | LineType_Executable
   deriving (Eq, Show)
 
--- Classify a line based on patterns and minimal-parser declarations
+-- Classify a line based on patterns and cling-parser declarations
 classifyLine :: [CppDeclaration] -> (Int, Text) -> (Int, Text, LineType)
 classifyLine declarations (idx, line) =
   let lineNum = idx + 1 -- Convert to 1-based for declaration matching
       stripped = T.strip line
 
-      -- Check if minimal-parser identified this line
+      -- Check if cling-parser identified this line
       declAtLine = [decl | decl <- declarations, Just l <- [startLine decl], fromIntegral l == lineNum]
 
       lineType = case declAtLine of
@@ -158,7 +158,7 @@ classifyLine declarations (idx, line) =
 
   in (idx, line, lineType)
 
--- Classify by text patterns (fallback when minimal-parser doesn't detect)
+-- Classify by text patterns (fallback when cling-parser doesn't detect)
 classifyByPattern :: Text -> LineType
 classifyByPattern stripped
   | T.isPrefixOf "#include" stripped = LineType_Include

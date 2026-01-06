@@ -14,7 +14,7 @@ import Language.LSP.Transformer
 type CppNotebookTransformer = DeclarationSifter
 
 transformerParams :: Params CppNotebookTransformer
-transformerParams = DeclarationSifterParams "minimal-parser" "__notebook_exec"
+transformerParams = DeclarationSifterParams "cling-parser" "__notebook_exec"
 
 idTransformerParams :: Params CppNotebookTransformer
 idTransformerParams = DeclarationSifterParams "true" ""

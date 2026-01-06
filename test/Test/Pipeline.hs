@@ -42,7 +42,7 @@ spec = describe "Full Pipeline" $ do
     let inputDoc = listToDoc (T.splitOn "\n" testInput)
 
     -- Step 1: DeclarationSifter (with wrapping disabled for separate testing)
-    (siftedDoc, _ :: DeclarationSifter) <- project (DeclarationSifterParams "minimal-parser" "") inputDoc
+    (siftedDoc, _ :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "") inputDoc
     let siftedText = T.intercalate "\n" $ docToList siftedDoc
 
     -- Verify DeclarationSifter moved declarations to top
@@ -51,7 +51,7 @@ spec = describe "Full Pipeline" $ do
     T.isInfixOf "class MyClass {};" siftedText `shouldBe` True
 
     -- Step 2: Use DeclarationSifter with wrapping (replaces ExecutableWrapper)
-    (wrappedDoc, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "minimal-parser" "__notebook_exec") inputDoc
+    (wrappedDoc, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
     let wrappedText = T.intercalate "\n" $ docToList wrappedDoc
 
     -- Verify DeclarationSifter wrapped executable statements
@@ -75,7 +75,7 @@ spec = describe "Full Pipeline" $ do
     let inputDoc = listToDoc (T.splitOn "\n" testInput)
 
     -- Run full pipeline (DeclarationSifter does everything, no main wrapper)
-    (finalDoc, _ :: DeclarationSifter) <- project (DeclarationSifterParams "minimal-parser" "__notebook_exec") inputDoc
+    (finalDoc, _ :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
 
     let finalText = T.intercalate "\n" $ docToList finalDoc
         finalLines = T.splitOn "\n" finalText
@@ -95,7 +95,7 @@ spec = describe "Full Pipeline" $ do
     let inputDoc = listToDoc (T.splitOn "\n" testInput)
 
     -- Use DeclarationSifter with wrapping enabled (no need for ExecutableWrapper)
-    (siftedWrappedDoc, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "minimal-parser" "__notebook_exec") inputDoc
+    (siftedWrappedDoc, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
     let siftedWrappedText = T.intercalate "\n" $ docToList siftedWrappedDoc
 
     -- Verify it did both sifting and wrapping
