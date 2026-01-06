@@ -2,33 +2,35 @@
 
 module Test.Transformer.DeclarationSifter where
 
+import Data.String.Interpolate
 import qualified Data.Text as T
 import Language.LSP.Notebook.DeclarationSifter
 import Language.LSP.Transformer
 import Test.Sandwich
 
+
 -- Test input with multi-line declarations that should be preserved
 testCode :: T.Text
-testCode = T.unlines
-  [ "#include <iostream>"
-  , "#include <vector>"
-  , ""
-  , "// This is a comment"
-  , ""
-  , "using namespace std;"
-  , ""
-  , "cout << \"Hello from the top!\" << endl;"
-  , ""
-  , "int x = 42;"
-  , ""
-  , "class MyClass {"
-  , "public:"
-  , "    int value;"
-  , "    void print() { cout << \"Class method\" << endl; }"
-  , "};"
-  , ""
-  , "cout << \"After class definition\" << endl;"
-  ]
+testCode = [__i|
+  \#include <iostream>
+  \#include <vector>
+
+  // This is a comment
+
+  using namespace std;
+
+  cout << "Hello from the top!" << endl;
+
+  int x = 42;
+
+  class MyClass {
+  public:
+      int value;
+      void print() { cout << "Class method" << endl; }
+  };
+
+  cout << "After class definition" << endl;
+  |]
 
 -- Expected output with declarations properly sifted and multi-line structures preserved
 expectedSiftedOutput :: T.Text
@@ -82,7 +84,7 @@ spec = describe "DeclarationSifter" $ do
 
     -- Check that includes come first, then using, then class, then variables
     (length outputLines >= 4) `shouldBe` True
-    T.isPrefixOf "#include" (head outputLines) `shouldBe` True  
+    T.isPrefixOf "#include" (head outputLines) `shouldBe` True
     T.isPrefixOf "using namespace" (outputLines !! 2) `shouldBe` True
     T.isPrefixOf "class" (outputLines !! 3) `shouldBe` True
 

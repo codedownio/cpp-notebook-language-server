@@ -130,7 +130,9 @@ test-suite cpp-notebook-language-server-test
   main-is: Main.hs
   other-modules:
       Test.Hover
+      Test.Pipeline
       Test.Transformer.DeclarationSifter
+      Test.Transformer.ExecutableWrapper
       Test.Transformer.HeadTail
       Test.Transformer.StripDirective
       TestLib.Common
