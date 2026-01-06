@@ -10,26 +10,19 @@ module Language.LSP.Notebook (
   ) where
 
 import Language.LSP.Notebook.HeadTailTransformer
-import Language.LSP.Notebook.StripDirective
 import Language.LSP.Notebook.DeclarationSifter
 import Language.LSP.Notebook.ExecutableWrapper
 import Language.LSP.Transformer
 
 
--- Original transformer (for compatibility)
-type CppNotebookTransformer =
-  StripDirective
-  :> HeadTailTransformer -- Wrap the whole doc in a function
+-- Original transformer (for compatibility) - simplified without StripDirective
+type CppNotebookTransformer = HeadTailTransformer
 
 transformerParams :: Params CppNotebookTransformer
-transformerParams =
-  SDParams True
-  :> (["int main() {"], ["}"])
+transformerParams = (["int main() {"], ["}"])
 
 idTransformerParams :: Params CppNotebookTransformer
-idTransformerParams =
-  SDParams False
-  :> ([], [])
+idTransformerParams = ([], [])
 
 -- New C++ specific transformer chain
 type CppNotebookTransformerV2 =

@@ -58,7 +58,6 @@ expectedSiftedOutput = [__i|
 
 spec :: TopSpec
 spec = describe "DeclarationSifter" $ do
-
   it "should preserve complete multi-line declarations" $ do
     let inputDoc = listToDoc (T.splitOn "\n" testCode)
     (outputDoc, _ :: DeclarationSifter) <- project (DeclarationSifterParams "minimal-parser" False "") inputDoc

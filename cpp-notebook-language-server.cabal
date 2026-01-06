@@ -19,7 +19,6 @@ library
       Language.LSP.Notebook.ExecutableWrapper
       Language.LSP.Notebook.HeadTailTransformer
       Language.LSP.Notebook.ImportSifter
-      Language.LSP.Notebook.StripDirective
       Language.LSP.Test
       Language.LSP.Transformer
       Language.LSP.TransformTest
@@ -134,7 +133,6 @@ test-suite cpp-notebook-language-server-test
       Test.Transformer.DeclarationSifter
       Test.Transformer.ExecutableWrapper
       Test.Transformer.HeadTail
-      Test.Transformer.StripDirective
       TestLib.Common
       TestLib.Core
       TestLib.Generators
