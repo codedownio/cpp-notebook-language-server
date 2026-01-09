@@ -2,6 +2,7 @@ resolver: nightly-2025-12-22
 
 packages:
 - .
+# - ../lsp-test-notebook
 
 nix:
   enable: false
@@ -9,6 +10,18 @@ nix:
 system-ghc: true
 
 extra-deps:
+- git: https://github.com/codedownio/sandwich
+  # long-running-nodes branch
+  commit: c3e16ccda384917fba1ccc5f3cf8f592415562c1
+  subdirs:
+  - sandwich
+  - sandwich-contexts
+  - sandwich-quickcheck
+
+- git: https://github.com/codedownio/lsp-test-notebook
+  # long-running-nodes branch
+  commit: 2beaf14aa0502d410960b6998de6303dce4fbcf2
+
 # - language-cpp-0.2.0.27
 
 # - github: harpocrates/language-cpp

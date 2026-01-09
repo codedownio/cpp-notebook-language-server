@@ -11,9 +11,9 @@ import Data.String.Interpolate
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 import Language.LSP.Notebook
-import Language.LSP.Transformer
-import Language.LSP.Protocol.Types
 import Language.LSP.Protocol.Lens as Lens
+import Language.LSP.Protocol.Types
+import Language.LSP.Transformer
 import System.FilePath
 import Transform.Util
 import UnliftIO.Directory
@@ -49,15 +49,3 @@ untransformRangedMaybe tx x = x
 
 instance HasRange Range Range where
   range = Prelude.id
-
--- * Update the shadow lib.rs file
-
-updateLibRs :: TransformerMonad m => m ()
-updateLibRs = do
-  TransformerState {..} <- ask
-  docs <- readMVar transformerDocuments
-  let identifiers = [dropExtension (takeFileName newPath) | DocumentState {..} <- fmap snd (M.toList docs)]
-  let libRsContent = T.intercalate "\n" [T.pack ("mod " <> x <> ";") | x <- identifiers]
-  logInfoN [i|libRsContent: #{libRsContent}|]
-  liftIO $ createDirectoryIfMissing True (transformerShadowDir </> "src")
-  liftIO $ T.writeFile (transformerShadowDir </> "src" </> "lib.rs") libRsContent

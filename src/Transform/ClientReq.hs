@@ -42,17 +42,7 @@ transformClientReq' :: forall m n. (TransformerMonad n) => ClientReqMethod m -> 
 transformClientReq' SMethod_Initialize params = do
   -- Store the non-modified params, so we can access the unmodified rootUri
   asks transformerInitializeParams >>= flip modifyMVar_ (\_ -> return $ Just params)
-
-  dir <- asks transformerShadowDir
-  pure $ params
-    & set rootPath (Just (InL (T.pack dir)))
-    & set rootUri (InL (filePathToUri dir))
-    & set (capabilities . textDocument . _Just . synchronization) (Just $ TextDocumentSyncClientCapabilities {
-                                                                      _dynamicRegistration = Just False
-                                                                      , _willSave = Just True
-                                                                      , _willSaveWaitUntil = Just False
-                                                                      , _didSave = Just True
-                                                                      })
+  pure params
 
 transformClientReq' SMethod_TextDocumentCodeAction params = whenAnything params $ withTransformer params $ doTransformUriAndRange @m params
 transformClientReq' SMethod_TextDocumentCodeLens params = whenAnything params $ withTransformer params $ doTransformUri @m params

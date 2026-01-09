@@ -127,6 +127,7 @@ test-suite cpp-notebook-language-server-test
   main-is: Main.hs
   other-modules:
       Test.Hover
+      Test.LSP.Hover
       Test.Pipeline
       Test.Transformer.DeclarationSifter
       TestLib.Common
@@ -153,18 +154,28 @@ test-suite cpp-notebook-language-server-test
   ghc-options: -Wunused-packages -Wall -fno-warn-name-shadowing -threaded -rtsopts -with-rtsopts=-N -O2 -W
   build-depends:
       QuickCheck
+    , aeson
     , base >=4.7 && <5
     , cpp-notebook-language-server
+    , directory
     , exceptions
+    , filepath
+    , hspec
     , lens
-    , lsp-types >=2.0.0.1
+    , lsp-test
+    , lsp-test-notebook
+    , lsp-types
     , monad-logger
+    , mtl
     , myers-diff
+    , process
     , quickcheck-instances
     , row-types
     , sandwich
+    , sandwich-contexts
     , sandwich-quickcheck
     , string-interpolate
+    , temporary
     , text
     , text-rope
     , unliftio

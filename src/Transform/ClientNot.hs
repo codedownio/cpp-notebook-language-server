@@ -63,18 +63,14 @@ transformClientNot' sendExtraNotification SMethod_TextDocumentDidOpen params = w
   let txParams = if isNotebook u then transformerParams else idTransformerParams
   (ls', transformer' :: CppNotebookTransformer) <- liftIO $ project txParams ls
   TransformerState {..} <- ask
-  (newPath, referenceRegex) <- do
-    identifier <- makeUUID' 15
-    let path = transformerShadowDir </> "src" </> identifier <.> "rs"
+  newUri <- addExtensionToUri ".cpp" u
+  let referenceRegex = case uriToFilePath newUri of
+        Just s -> mkDocRegex (T.pack s)
+        Nothing -> mkDocRegex (getUri newUri)
 
-    newPath <- do
-      createDirectoryIfMissing True (takeDirectory path)
-      liftIO $ T.writeFile path (Rope.toText ls')
-      return path
-
-    pure (newPath, mkDocRegex (T.pack (identifier <.> "rs")))
-
-  let newUri = filePathToUri newPath
+  let newPath = case uriToFilePath newUri of
+        Nothing -> "ERROR_URI_PARSE_FAILURE"
+        Just x -> x
 
   uuid <- liftIO UUID.nextRandom
 
@@ -103,8 +99,6 @@ transformClientNot' sendExtraNotification SMethod_TextDocumentDidOpen params = w
         , documentUuid = uuid
         , debouncedDidChange = debouncedDidChange
         }) x
-
-  updateLibRs
 
   return $ params
          & set (textDocument . text) (Rope.toText ls')
@@ -136,7 +130,6 @@ transformClientNot' _ SMethod_TextDocumentDidClose params = whenAnything params 
       removePathForcibly newPath
       pure newUri
     Nothing -> addExtensionToUri ".rs" u -- The client shouldn't be closing a non-open doc
-  updateLibRs
   return $ params
          & set (textDocument . uri) newUri
 
