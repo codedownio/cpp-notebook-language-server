@@ -12,8 +12,7 @@ import Control.Monad.Reader
 import Data.String.Interpolate
 import qualified Data.Text as T
 import Language.LSP.Transformer
-import Language.LSP.Test.Notebook.Hover (shouldContainText)
-import Language.LSP.Test.Notebook.Util (mkPosition, positionToInts)
+import Language.LSP.Test.Helpers
 import qualified "lsp-test" Language.LSP.Test as LSP
 import Language.LSP.Protocol.Types
 import Language.LSP.Notebook.DeclarationSifter

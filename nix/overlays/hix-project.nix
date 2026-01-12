@@ -13,6 +13,7 @@ final: prev: {
       modules = [{
         packages.unix.components.library.configureFlags = [''-f os-string''];
         packages.directory.components.library.configureFlags = [''-f os-string''];
+        packages.file-io.components.library.configureFlags = [''-f os-string''];
 
         packages.cpp-notebook-language-server.components.exes.cpp-notebook-language-server.dontStrip = false;
       } (

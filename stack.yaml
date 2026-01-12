@@ -1,4 +1,4 @@
-resolver: nightly-2025-12-22
+resolver: nightly-2025-11-19
 
 packages:
 - .
@@ -18,9 +18,9 @@ extra-deps:
   - sandwich-contexts
   - sandwich-quickcheck
 
-- git: https://github.com/codedownio/lsp-test-notebook
-  # long-running-nodes branch
-  commit: 2beaf14aa0502d410960b6998de6303dce4fbcf2
+- git: https://github.com/codedownio/lsp-test-helpers.git
+  # main branch
+  commit: 6a73e2393a1d9f21719580ce9ca0efbefabda60f
 
 # - language-cpp-0.2.0.27
 

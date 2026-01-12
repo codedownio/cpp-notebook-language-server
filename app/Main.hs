@@ -70,8 +70,8 @@ main :: IO ()
 main = do
   Options {..} <- execParser fullOpts
 
-  wrappedLanguageServerPath <- (pure optWrappedLanguageServer <|> findExecutable "cpp-analyzer-wrapper") >>= \case
-    Nothing -> throwIO $ userError [i|Couldn't find cpp-analyzer binary.|]
+  wrappedLanguageServerPath <- (pure optWrappedLanguageServer <|> findExecutable "clangd") >>= \case
+    Nothing -> throwIO $ userError [i|Couldn't find clangd binary.|]
     Just x -> return x
 
   (Just wrappedIn, Just wrappedOut, Just wrappedErr, p) <- createProcess (
