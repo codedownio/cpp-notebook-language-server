@@ -92,26 +92,28 @@ tests:
     - -W
     dependencies:
     - QuickCheck
+    - aeson
+    - containers
     - cpp-notebook-language-server
+    - directory
     - exceptions
+    - filepath
+    - hspec
     - lens
+    - lsp-test
+    - lsp-test-helpers
+    - lsp-types
+    - monad-logger
+    - mtl
     - myers-diff
-    - lsp-test-notebook
+    - process
     - quickcheck-instances
     - row-types
     - sandwich
     - sandwich-contexts
     - sandwich-quickcheck
-    - text-rope
-    - lsp-test
-    - lsp-types
-    - filepath
-    - temporary
-    - directory
-    - process
     - string-interpolate
-    - aeson
-    - hspec
-    - monad-logger
-    - mtl
+    - temporary
+    - text-rope
     - unliftio
+    - unliftio-core

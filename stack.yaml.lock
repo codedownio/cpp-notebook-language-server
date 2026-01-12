@@ -44,6 +44,45 @@ packages:
     git: https://github.com/codedownio/sandwich
     subdir: sandwich-quickcheck
 - completed:
+    commit: d920b28aa25d454812d8d9bbd922e893574d45bc
+    git: https://github.com/codedownio/lsp.git
+    name: lsp
+    pantry-tree:
+      sha256: 0463d2462d7690aa877cf2f79279cc1902be006ca7bfcae34da1a56b46c7d00c
+      size: 1121
+    subdir: lsp
+    version: 2.7.0.1
+  original:
+    commit: d920b28aa25d454812d8d9bbd922e893574d45bc
+    git: https://github.com/codedownio/lsp.git
+    subdir: lsp
+- completed:
+    commit: d920b28aa25d454812d8d9bbd922e893574d45bc
+    git: https://github.com/codedownio/lsp.git
+    name: lsp-test
+    pantry-tree:
+      sha256: 3671570067b55febf7903af85164d35aa515851318e69b31f048998e64362c6a
+      size: 2304
+    subdir: lsp-test
+    version: 0.17.1.1
+  original:
+    commit: d920b28aa25d454812d8d9bbd922e893574d45bc
+    git: https://github.com/codedownio/lsp.git
+    subdir: lsp-test
+- completed:
+    commit: d920b28aa25d454812d8d9bbd922e893574d45bc
+    git: https://github.com/codedownio/lsp.git
+    name: lsp-types
+    pantry-tree:
+      sha256: 08d01a9208540b71e038e6fb85793a42785b37fa390f6f57df2eba0a5e87fe8e
+      size: 52176
+    subdir: lsp-types
+    version: 2.3.0.1
+  original:
+    commit: d920b28aa25d454812d8d9bbd922e893574d45bc
+    git: https://github.com/codedownio/lsp.git
+    subdir: lsp-types
+- completed:
     commit: 6a73e2393a1d9f21719580ce9ca0efbefabda60f
     git: https://github.com/codedownio/lsp-test-helpers.git
     name: lsp-test-helpers

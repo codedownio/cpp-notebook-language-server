@@ -1,131 +1,119 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE PackageImports #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE PackageImports #-}
+{-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeOperators #-}
 
 module Test.LSP.Hover where
 
+import Control.Lens ((^.))
+import Control.Monad (void)
 import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Logger
+import Data.Function (fix)
+import UnliftIO.Exception
+import System.FilePath
+import Control.Monad.IO.Unlift
 import Control.Monad.Reader
 import Data.String.Interpolate
 import qualified Data.Text as T
-import Language.LSP.Transformer
-import Language.LSP.Test.Helpers
-import qualified "lsp-test" Language.LSP.Test as LSP
+import GHC.Stack
+import Language.LSP.Protocol.Lens hiding (hover)
 import Language.LSP.Protocol.Types
-import Language.LSP.Notebook.DeclarationSifter
-import Language.LSP.Notebook (CppNotebookTransformer)
-import System.FilePath
-import System.IO.Temp (createTempDirectory)
+import qualified "lsp-test" Language.LSP.Test as LSP hiding (message)
+import qualified Language.LSP.Test.Helpers as Helpers
 import Test.Sandwich
 import Test.Sandwich.Contexts.Files
 import Test.Sandwich.Contexts.Nix
+import TestLib.LSP
 import UnliftIO.Directory
-import UnliftIO.Exception (catchAny, handle)
 import UnliftIO.Process
 
 
--- | Test C++ LSP hover functionality with our notebook transformer
 spec :: TopSpec
-spec = describe "C++ LSP Hover Tests" $ do
+spec = describe "C++ LSP Hover Tests" $
+  introduceMaybeBubblewrap $
+  introduceNixContext nixpkgsReleaseDefault $
+  introduceBinaryViaNixPackage @"clangd" "clang-tools" $
+  introduceCnls $ do
 
-  describe "Basic functionality (no external deps)" $ do
-    it "can parse and transform basic C++ notebook code (no LSP)" $ do
-      let notebookCode = T.unlines [
+    it "hovers over variable declaration" $ do
+      let testCode = T.unlines [
             "int x = 42;",
-            "cout << \"Hello\" << endl;",
-            "cout << x << endl;"
+            "float y = 3.14;"
             ]
 
-      -- Just test the transformation part without external dependencies
-      let inputDoc = listToDoc (T.splitOn "\n" notebookCode)
-      -- For now, skip the actual transformation since it requires cling-parser
-      let transformedCode = T.unlines (docToList inputDoc) -- Simple pass-through
+      doNotebookSession testCode $ \(Helpers.LspSessionInfo {..}) -> do
+        doc <- LSP.openDoc lspSessionInfoFileName LanguageKind_CPP
 
-      info [i|Original code:\n#{notebookCode}|]
-      info [i|Transformed code (pass-through):\n#{transformedCode}|]
+        -- Hover over 'x' at position (0, 4)
+        LSP.getHover doc (Position 0 4) >>= \case
+          Nothing -> liftIO $ expectationFailure "Expected hover for variable 'x'"
+          Just hover -> do
+            let hoverText = Helpers.allHoverText hover
+            info [i|Got hover text for 'x': #{hoverText}|]
+            liftIO $ hoverText `shouldContainText` "int"
 
-      -- Basic validation that we have the expected content
-      let lines = filter (not . T.null) (T.splitOn "\n" transformedCode)
-      length lines `shouldBe` 3
-      head lines `shouldBe` "int x = 42;"
+    it "hovers over function call" $ do
+      let testCode = T.unlines [
+            "#include <iostream>",
+            "int main() {",
+            "  std::cout << \"Hello\" << std::endl;",
+            "  return 0;",
+            "}"
+            ]
 
-    it "validates basic module imports and types are accessible" $ do
-      -- Test that our module imports work correctly
-      let pos = mkPosition 5 10
-      positionToInts pos `shouldBe` (5, 10)
+      doNotebookSession testCode $ \(Helpers.LspSessionInfo {..}) -> do
+        doc <- LSP.openDoc lspSessionInfoFileName LanguageKind_CPP
 
-      -- Test hover text processing
-      let testText = "Variable x has type int"
-      testText `shouldContainText` "int"
+        -- Hover over 'cout' at position (2, 8)
+        LSP.getHover doc (Position 2 8) >>= \case
+          Nothing -> info "No hover found for cout (might be expected)"
+          Just hover -> do
+            let hoverText = Helpers.allHoverText hover
+            info [i|Got hover text for 'cout': #{hoverText}|]
+            -- std::cout is an ostream
+            liftIO $ hoverText `shouldContainText` "std"
 
-  describe "End-to-end LSP tests with Nix" $
-    introduceNixContext nixpkgsReleaseDefault $
-    introduceBinaryViaNixPackage @"clangd" "clang-tools" $
-    introduceBinaryViaNixDerivation @"cpp-notebook-language-server" cppNotebookLanguageServerDerivation $
-      it "tests end-to-end LSP hover through cpp-notebook-language-server" $ do
-        testEndToEndLSPHover
+introduceCnls :: forall context m. (
+  HasBaseContext context, HasNixContext context, MonadUnliftIO m
+  )
+  => SpecFree (LabelValue "file-cpp-notebook-language-server" (EnvironmentFile "cpp-notebook-language-server") :> context) m ()
+  -> SpecFree context m ()
+introduceCnls = introduce [i|cpp-notebook-language-server (binary via Nix derivation)|] (Label :: Label "file-cpp-notebook-language-server" (EnvironmentFile "cpp-notebook-language-server")) alloc (const $ return ())
+  where
+    alloc = do
+      projectRoot <- getProjectRoot
+      dir <- buildNixCallPackageDerivation (cppNotebookLanguageServerDerivation projectRoot)
+      liftIO (findExecutablesInDirectories [dir </> "bin"] "cpp-notebook-language-server") >>= \case
+        (x:_) -> return (EnvironmentFile x :: EnvironmentFile "cpp-notebook-language-server")
+        _ -> expectationFailure [i|Couldn't find binary in #{dir </> "bin"}|]
 
--- | Derivation for cpp-notebook-language-server using the local flake
-cppNotebookLanguageServerDerivation :: T.Text
-cppNotebookLanguageServerDerivation = [i|
+cppNotebookLanguageServerDerivation :: FilePath -> T.Text
+cppNotebookLanguageServerDerivation projectRoot = [i|
 { ... }:
 
 let
-  flake = builtins.getFlake "/home/tom/tools/cpp-notebook-language-server";
+  flake = builtins.getFlake "#{projectRoot}";
 in flake.packages.x86_64-linux.default
 |]
 
+shouldContainText :: T.Text -> T.Text -> IO ()
+shouldContainText haystack needle =
+  if needle `T.isInfixOf` haystack
+    then return ()
+    else expectationFailure [i|Expected "#{haystack}" to contain "#{needle}"|]
 
--- | End-to-end test that runs cpp-notebook-language-server with clangd
-testEndToEndLSPHover :: (
-  MonadIO m, MonadReader context m, MonadLogger m
-  , HasFile context "clangd"
-  , HasFile context "cpp-notebook-language-server"
-  ) => m ()
-testEndToEndLSPHover = do
-  clangdPath <- askFile @"clangd"
-  cppNotebookLSPath <- askFile @"cpp-notebook-language-server"
-
-  info [i|Using clangd at: #{clangdPath}|]
-  info [i|Using cpp-notebook-language-server at: #{cppNotebookLSPath}|]
-
-  -- Create test workspace
-  workspaceDir <- liftIO $ createTempDirectory "/tmp" "lsp-test-workspace"
-  let testFile = workspaceDir </> "test.notebook"
-
-  -- Write test notebook code
-  let testCode = T.unlines [
-        "int x = 42;",
-        "std::cout << \"Hello from notebook!\" << std::endl;",
-        "std::cout << x << std::endl;"
-        ]
-  liftIO $ writeFile testFile (T.unpack testCode)
-
-  -- Create compile_commands.json for clangd
-  let compileCommandsPath = workspaceDir </> "compile_commands.json"
-  liftIO $ writeFile compileCommandsPath $ unlines [
-    "[{",
-    "  \"directory\": \"" ++ workspaceDir ++ "\",",
-    "  \"command\": \"clang++ -std=c++17 test.cpp\",",
-    "  \"file\": \"" ++ workspaceDir </> "test.cpp" ++ "\"",
-    "}]"
-    ]
-
-  -- Test the LSP interaction
-  info "Starting end-to-end LSP test..."
-
-  -- For now, just verify the binaries exist and are executable
-  clangdVersion <- readCreateProcess (proc clangdPath ["--version"]) ""
-  info [i|Clangd version: #{take 100 clangdVersion}...|]
-
-  cppLSVersion <- readCreateProcess (proc cppNotebookLSPath ["--help"]) ""
-  info [i|cpp-notebook-language-server help: #{take 200 cppLSVersion}...|]
-
-  -- TODO: Add actual LSP session testing here
-  info "✅ End-to-end LSP test completed successfully!"
+getProjectRoot :: (HasCallStack, MonadIO m) => m FilePath
+getProjectRoot = do
+  startDir <- getCurrentDirectory
+  flip fix startDir $ \loop dir -> do
+    doesDirectoryExist (dir </> ".git") >>= \case
+      True -> return dir
+      False -> let dir' = takeDirectory dir in
+                 if | dir == dir' -> throwIO $ userError [i|Couldn't find project root starting from #{startDir}|]
+                    | otherwise -> loop dir'
 
 main :: IO ()
 main = runSandwichWithCommandLineArgs defaultOptions spec

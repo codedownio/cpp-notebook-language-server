@@ -133,6 +133,7 @@ test-suite cpp-notebook-language-server-test
       TestLib.Common
       TestLib.Core
       TestLib.Generators
+      TestLib.LSP
       TestLib.Util
       Paths_cpp_notebook_language_server
   hs-source-dirs:
@@ -156,6 +157,7 @@ test-suite cpp-notebook-language-server-test
       QuickCheck
     , aeson
     , base >=4.7 && <5
+    , containers
     , cpp-notebook-language-server
     , directory
     , exceptions
@@ -163,7 +165,7 @@ test-suite cpp-notebook-language-server-test
     , hspec
     , lens
     , lsp-test
-    , lsp-test-notebook
+    , lsp-test-helpers
     , lsp-types
     , monad-logger
     , mtl
@@ -179,4 +181,5 @@ test-suite cpp-notebook-language-server-test
     , text
     , text-rope
     , unliftio
+    , unliftio-core
   default-language: Haskell2010

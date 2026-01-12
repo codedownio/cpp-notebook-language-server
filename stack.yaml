@@ -18,6 +18,14 @@ extra-deps:
   - sandwich-contexts
   - sandwich-quickcheck
 
+- git: https://github.com/codedownio/lsp.git
+  # upgrade-monads-newest-jan2026 branch
+  commit: d920b28aa25d454812d8d9bbd922e893574d45bc
+  subdirs:
+  - lsp
+  - lsp-test
+  - lsp-types
+
 - git: https://github.com/codedownio/lsp-test-helpers.git
   # main branch
   commit: 6a73e2393a1d9f21719580ce9ca0efbefabda60f
