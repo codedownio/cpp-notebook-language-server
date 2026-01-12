@@ -49,27 +49,23 @@ doNotebookSession codeToUse cb = do
   cppNotebookLSPath <- askFile @"cpp-notebook-language-server"
   clangdPath <- askFile @"clangd"
 
-  -- Get the basic PATH by running nix
-  pathToUse <- getBasicPath
-
   withSystemTempDirectory "cpp-lsp-test" $ \tmpDir -> do
-    let fileName = "main.ipynb"
+    let fileName = "main.cpp"
     let testFile = tmpDir </> T.unpack fileName
 
     -- Write the notebook code
     liftIO $ TIO.writeFile testFile codeToUse
 
-    -- Create compile_commands.json for clangd
-    let compileCommandsPath = tmpDir </> "compile_commands.json"
-    liftIO $ writeFile compileCommandsPath $ unlines [
-      "[{",
-      "  \"directory\": \"" ++ tmpDir ++ "\",",
-      "  \"command\": \"clang++ -std=c++17 test.cpp\",",
-      "  \"file\": \"" ++ tmpDir </> "test.cpp" ++ "\"",
-      "}]"
-      ]
+    -- -- Create compile_commands.json for clangd
+    -- let compileCommandsPath = tmpDir </> "compile_commands.json"
+    -- liftIO $ writeFile compileCommandsPath $ unlines [
+    --   "[{",
+    --   "  \"directory\": \"" ++ tmpDir ++ "\",",
+    --   "  \"command\": \"clang++ -std=c++17 test.cpp\",",
+    --   "  \"file\": \"" ++ tmpDir </> "test.cpp" ++ "\"",
+    --   "}]"
+    --   ]
 
-    -- Configure the language server
     let lspConfig = Helpers.LanguageServerConfig {
           lspConfigName = "cpp-notebook-language-server"
           , lspConfigVersion = Nothing
@@ -83,6 +79,11 @@ doNotebookSession codeToUse cb = do
           , lspConfigArgs = [
               T.pack cppNotebookLSPath
               , "--wrapped-server", T.pack clangdPath
+              , "--log-level", "debug"
+              , "--debug-client-writes"
+              , "--debug-client-reads"
+              , "--debug-server-writes"
+              , "--debug-server-reads"
               ]
           , lspConfigLanguageId = Just LanguageKind_CPP
           , lspConfigInitializationOptions = Nothing
@@ -93,7 +94,7 @@ doNotebookSession codeToUse cb = do
           , lspConfigIsBuiltIn = Just False
           }
 
-    -- Get the Nix closure for both binaries
+    pathToUse <- getBasicPath
     closure <- getCppLspClosure cppNotebookLSPath clangdPath pathToUse
 
     let lspSessionOptions = (Helpers.defaultLspSessionOptions lspConfig) {
@@ -103,9 +104,9 @@ doNotebookSession codeToUse cb = do
           , Helpers.lspSessionOptionsExtraFiles = []
           , Helpers.lspSessionOptionsPathEnvVar = pathToUse
           , Helpers.lspSessionOptionsReadOnlyBinds = closure
+          , Helpers.lspSessionOptionsModifySessionConfig = \x -> x { LSP.messageTimeout = 10 }
           }
 
-    -- Run the LSP session
     Helpers.withLspSession lspSessionOptions cb
 
 getBasicPath :: (MonadUnliftIO m, MonadLogger m) => m FilePath

@@ -25,7 +25,6 @@ spec = describe "C++ LSP Hover Tests" $
   introduceNixContext nixpkgsReleaseDefault $
   introduceBinaryViaNixPackage @"clangd" "clang-tools" $
   introduceCnls $ do
-
     it "hovers over variable declaration" $ do
       let testCode = T.unlines [
             "int x = 42;",
@@ -35,7 +34,7 @@ spec = describe "C++ LSP Hover Tests" $
       doNotebookSession testCode $ \(Helpers.LspSessionInfo {..}) -> do
         doc <- LSP.openDoc lspSessionInfoFileName LanguageKind_CPP
 
-        -- Hover over 'x' at position (0, 4)
+        -- Hover over 'x'
         LSP.getHover doc (Position 0 4) >>= \case
           Nothing -> liftIO $ expectationFailure "Expected hover for variable 'x'"
           Just hover -> do

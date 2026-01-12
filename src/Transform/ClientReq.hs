@@ -54,10 +54,10 @@ transformClientReq' SMethod_TextDocumentHover params = whenAnything params $ wit
 transformClientReq' SMethod_TextDocumentImplementation params = whenAnything params $ withTransformer params $ doTransformUriAndPosition @m params
 transformClientReq' SMethod_TextDocumentTypeDefinition params = whenAnything params $ withTransformer params $ doTransformUriAndPosition @m params
 
--- Custom methods provided by cpp-analyzer
-transformClientReq' (SMethod_CustomMethod p) val = case sameSymbol p (Proxy @"cpp-analyzer/analyzerStatus") of
+-- Custom methods provided by clangd
+transformClientReq' (SMethod_CustomMethod p) val = case sameSymbol p (Proxy @"clangd/analyzerStatus") of
   Just Refl -> case A.fromJSON val of
-    A.Error err -> logErrorN [i|Failed to decode custom method "cpp-analyzer/analyzerStatus": #{err}|] >> return val
+    A.Error err -> logErrorN [i|Failed to decode custom method "clangd/analyzerStatus": #{err}|] >> return val
     A.Success (TextDocumentIdentifier uri) ->
       whenAnything' uri val $
         withTransformer val $ \(DocumentState {newUri}) ->

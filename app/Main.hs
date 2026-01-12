@@ -52,6 +52,10 @@ data Options = Options {
   , optWrappedArgs :: Maybe Text
   , optDidSaveDebouncePeriodMs :: Int
   , optLogLevel :: Maybe Text
+  , optDebugClientWrites :: Bool
+  , optDebugClientReads :: Bool
+  , optDebugServerWrites :: Bool
+  , optDebugServerReads :: Bool
   }
 
 options :: Parser Options
@@ -60,10 +64,14 @@ options = Options
   <*> optional (strOption (long "wrapped-args" <> help "Extra arguments to clangd"))
   <*> option auto (long "did-save-period-ms" <> showDefault <> help "Debounce period for sending textDocument/didSave notifications after changes" <> value 1000 <> metavar "INT")
   <*> optional (strOption (long "log-level" <> help "Log level (debug, info, warn, error)"))
+  <*> flag False True (long "debug-client-writes" <> help "Debug writes to the client")
+  <*> flag False True (long "debug-client-reads" <> help "Debug reads from the client")
+  <*> flag False True (long "debug-server-writes" <> help "Debug writes to the wrapped server")
+  <*> flag False True (long "debug-server-reads" <> help "Debug reads from the wrapped server")
 
 fullOpts :: ParserInfo Options
 fullOpts = info (options <**> helper) (
-  fullDesc <> progDesc "Run a wrapped cpp-analyzer with notebook support"
+  fullDesc <> progDesc "Run a wrapped clangd with notebook support"
   )
 
 main :: IO ()
@@ -123,6 +131,7 @@ main = do
 
   let sendToStdout :: (MonadUnliftIO m, ToJSON a) => a -> m ()
       sendToStdout x = do
+        when optDebugClientWrites $ runStderrLoggingT $ logInfoN [i|CLIENT WRITE: #{BL8.unpack (A.encode x)}|]
         withMVar stdoutLock $ \_ -> do
           liftIO $ writeToHandle stdout $ A.encode x
 
@@ -135,36 +144,41 @@ main = do
   transformerState <- newTransformerState optDidSaveDebouncePeriodMs
 
   flip runLoggingT logFn $ filterLogger logFilterFn $ flip runReaderT transformerState $
-    withAsync (readWrappedOut clientReqMap serverReqMap wrappedOut sendToStdout) $ \_wrappedOutAsync ->
+    withAsync (readWrappedOut optDebugServerReads clientReqMap serverReqMap wrappedOut sendToStdout) $ \_wrappedOutAsync ->
       withAsync (readWrappedErr wrappedErr) $ \_wrappedErrAsync ->
-        withAsync (forever $ handleStdin wrappedIn clientReqMap serverReqMap) $ \_stdinAsync -> do
+        withAsync (forever $ handleStdin optDebugServerWrites optDebugClientReads wrappedIn clientReqMap serverReqMap) $ \_stdinAsync -> do
           waitForProcess p >>= \case
-            ExitFailure n -> logErrorN [i|cpp-analyzer subprocess exited with code #{n}|]
-            ExitSuccess -> logInfoN [i|cpp-analyzer subprocess exited successfully|]
+            ExitFailure n -> logErrorN [i|clangd subprocess exited with code #{n}|]
+            ExitSuccess -> logInfoN [i|clangd subprocess exited successfully|]
 
 handleStdin :: forall m. (
   MonadLoggerIO m, MonadReader TransformerState m, MonadUnliftIO m, MonadFail m
-  ) => Handle -> MVar ClientRequestMap -> MVar ServerRequestMap -> m ()
-handleStdin wrappedIn clientReqMap serverReqMap = do
+  ) => Bool -> Bool -> Handle -> MVar ClientRequestMap -> MVar ServerRequestMap -> m ()
+handleStdin debugServerWrites debugClientReads wrappedIn clientReqMap serverReqMap = do
   (A.eitherDecode <$> liftIO (parseStream stdin)) >>= \case
     Left err -> logErr [i|Couldn't decode incoming message: #{err}|]
     Right (x :: A.Value) -> do
+      when debugClientReads $ logInfoN [i|CLIENT READ: #{BL8.unpack (A.encode x)}|]
       m <- readMVar serverReqMap
       case A.parseEither (parseClientMessage (lookupServerId m)) x of
         Left err -> do
           logErr [i|Couldn't decode incoming message: #{err}|]
-          liftIO $ writeToHandle wrappedIn (A.encode x)
+          writeToServerHandle wrappedIn (A.encode x)
         Right (ClientToServerRsp meth msg) -> do
-          transformClientRsp meth msg >>= liftIO . writeToHandle wrappedIn . A.encode
+          transformClientRsp meth msg >>= writeToServerHandle wrappedIn . A.encode
         Right (ClientToServerReq meth msg) -> do
           let msgId = msg ^. Lens.id
           modifyMVar_ clientReqMap $ \m -> case updateClientRequestMap m msgId (SMethodAndParams meth (msg ^. Lens.params)) of
             Just m' -> return m'
             Nothing -> return m
-          transformClientReq meth msg >>= liftIO . writeToHandle wrappedIn . A.encode
+          transformClientReq meth msg >>= writeToServerHandle wrappedIn . A.encode
         Right (ClientToServerNot meth msg) ->
-          transformClientNot sendExtraNotification meth msg >>= (liftIO . writeToHandle wrappedIn . A.encode)
+          transformClientNot sendExtraNotification meth msg >>= writeToServerHandle wrappedIn . A.encode
   where
+    writeToServerHandle :: Handle -> BL.ByteString -> m ()
+    writeToServerHandle h bs = do
+      when debugServerWrites $ logInfoN [i|SERVER WRITE: #{BL8.unpack bs}|]
+      liftIO $ writeToHandle h bs
     sendExtraNotification :: SendExtraNotificationFn m
     sendExtraNotification msg = do
       logDebugN [i|Sending extra notification: #{A.encode msg}|]
@@ -172,11 +186,12 @@ handleStdin wrappedIn clientReqMap serverReqMap = do
 
 readWrappedOut :: (
   MonadUnliftIO m, MonadLoggerIO m, MonadReader TransformerState m, MonadFail m
-  ) => MVar ClientRequestMap -> MVar ServerRequestMap -> Handle -> (forall a. ToJSON a => a -> m ()) -> m b
-readWrappedOut clientReqMap serverReqMap wrappedOut sendToStdout = forever $ do
+  ) => Bool -> MVar ClientRequestMap -> MVar ServerRequestMap -> Handle -> (forall a. ToJSON a => a -> m ()) -> m b
+readWrappedOut debugServerReads clientReqMap serverReqMap wrappedOut sendToStdout = forever $ do
   (A.eitherDecode <$> liftIO (parseStream wrappedOut)) >>= \case
     Left err -> logErr [i|Couldn't decode wrapped output: #{err}|]
     Right (x :: A.Value) -> do
+      when debugServerReads $ logInfoN [i|SERVER READ: #{BL8.unpack (A.encode x)}|]
       m <- readMVar clientReqMap
       case A.parseEither (parseServerMessage (lookupClientId m)) x of
         Left err -> do
