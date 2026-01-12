@@ -1,16 +1,18 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE OverloadedLabels #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 module TestLib.Generators (
   arbitrarySingleLineChange
   , arbitraryChange
+  , arbitraryChanges
+  , arbitraryAlphanumericString
   ) where
 
 import Data.Diff.Myers
 import qualified Data.Diff.Types as DT
 import Data.Function
 import qualified Data.List as L
-import Data.Row.Records
 import Data.Text as T
 import Data.Text.Rope (Rope)
 import qualified Data.Text.Rope as Rope

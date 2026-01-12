@@ -4,17 +4,9 @@
 module TestLib.Core where
 
 import Control.Monad.IO.Class
-import Control.Monad.Logger
-import qualified Data.List as L
-import Data.Row.Records
-import Data.Text as T
-import GHC.Stack
 import Language.LSP.Protocol.Types
 import Language.LSP.Transformer
 import Test.QuickCheck as Q
-import Test.Sandwich
-import TestLib.Util
-import UnliftIO.Exception
 
 
 testChange :: forall a m. (

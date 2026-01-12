@@ -80,7 +80,7 @@ spec = describe "DeclarationSifter" $ do
                                  , "};"
                                  ]
         classBlock `shouldBe` expectedClassBlock
-        
+
     -- Should also have wrapped the executable statements
     T.isInfixOf "void __test_exec() {" outputText `shouldBe` True
 
@@ -91,7 +91,7 @@ spec = describe "DeclarationSifter" $ do
 
     -- Check that includes come first, then using, then class, then variables
     (length outputLines >= 4) `shouldBe` True
-    T.isPrefixOf "#include" (head outputLines) `shouldBe` True
+    T.isPrefixOf "#include" (outputLines !! 0) `shouldBe` True
     T.isPrefixOf "using namespace" (outputLines !! 2) `shouldBe` True
     T.isPrefixOf "class" (outputLines !! 3) `shouldBe` True
 

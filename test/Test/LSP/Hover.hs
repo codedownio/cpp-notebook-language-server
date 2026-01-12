@@ -7,28 +7,16 @@
 
 module Test.LSP.Hover where
 
-import Control.Lens ((^.))
-import Control.Monad (void)
-import Control.Monad.IO.Class (liftIO)
-import Control.Monad.Logger
-import Data.Function (fix)
-import UnliftIO.Exception
-import System.FilePath
 import Control.Monad.IO.Unlift
-import Control.Monad.Reader
 import Data.String.Interpolate
-import qualified Data.Text as T
-import GHC.Stack
-import Language.LSP.Protocol.Lens hiding (hover)
 import Language.LSP.Protocol.Types
-import qualified "lsp-test" Language.LSP.Test as LSP hiding (message)
-import qualified Language.LSP.Test.Helpers as Helpers
 import Test.Sandwich
 import Test.Sandwich.Contexts.Files
 import Test.Sandwich.Contexts.Nix
 import TestLib.LSP
-import UnliftIO.Directory
-import UnliftIO.Process
+import qualified "lsp-test" Language.LSP.Test as LSP hiding (message)
+import qualified Data.Text as T
+import qualified Language.LSP.Test.Helpers as Helpers
 
 
 spec :: TopSpec
@@ -76,44 +64,11 @@ spec = describe "C++ LSP Hover Tests" $
             -- std::cout is an ostream
             liftIO $ hoverText `shouldContainText` "std"
 
-introduceCnls :: forall context m. (
-  HasBaseContext context, HasNixContext context, MonadUnliftIO m
-  )
-  => SpecFree (LabelValue "file-cpp-notebook-language-server" (EnvironmentFile "cpp-notebook-language-server") :> context) m ()
-  -> SpecFree context m ()
-introduceCnls = introduce [i|cpp-notebook-language-server (binary via Nix derivation)|] (Label :: Label "file-cpp-notebook-language-server" (EnvironmentFile "cpp-notebook-language-server")) alloc (const $ return ())
-  where
-    alloc = do
-      projectRoot <- getProjectRoot
-      dir <- buildNixCallPackageDerivation (cppNotebookLanguageServerDerivation projectRoot)
-      liftIO (findExecutablesInDirectories [dir </> "bin"] "cpp-notebook-language-server") >>= \case
-        (x:_) -> return (EnvironmentFile x :: EnvironmentFile "cpp-notebook-language-server")
-        _ -> expectationFailure [i|Couldn't find binary in #{dir </> "bin"}|]
-
-cppNotebookLanguageServerDerivation :: FilePath -> T.Text
-cppNotebookLanguageServerDerivation projectRoot = [i|
-{ ... }:
-
-let
-  flake = builtins.getFlake "#{projectRoot}";
-in flake.packages.x86_64-linux.default
-|]
-
 shouldContainText :: T.Text -> T.Text -> IO ()
 shouldContainText haystack needle =
   if needle `T.isInfixOf` haystack
     then return ()
     else expectationFailure [i|Expected "#{haystack}" to contain "#{needle}"|]
-
-getProjectRoot :: (HasCallStack, MonadIO m) => m FilePath
-getProjectRoot = do
-  startDir <- getCurrentDirectory
-  flip fix startDir $ \loop dir -> do
-    doesDirectoryExist (dir </> ".git") >>= \case
-      True -> return dir
-      False -> let dir' = takeDirectory dir in
-                 if | dir == dir' -> throwIO $ userError [i|Couldn't find project root starting from #{startDir}|]
-                    | otherwise -> loop dir'
 
 main :: IO ()
 main = runSandwichWithCommandLineArgs defaultOptions spec

@@ -10,34 +10,34 @@
 
 module TestLib.LSP (
   doNotebookSession
-  , getBasicPath
-  , getCppLspClosure
   , introduceMaybeBubblewrap
+  , introduceCnls
   ) where
 
 import Control.Monad (void)
 import Control.Monad.Catch (MonadMask)
-import Control.Monad.IO.Class (liftIO)
 import Control.Monad.Logger
 import Control.Monad.Reader
+import Data.Function (fix)
 import Data.String.Interpolate
-import qualified Data.Text as T
-import qualified Data.Set as S
-import qualified Data.Text.IO as TIO
+import GHC.Stack
 import Language.LSP.Protocol.Types
-import qualified "lsp-test" Language.LSP.Test as LSP hiding (message)
-import qualified Language.LSP.Test.Helpers as Helpers
-import qualified System.Directory as Dir
 import System.FilePath
 import System.IO
 import System.IO.Temp
 import Test.Sandwich
 import Test.Sandwich.Contexts.Files
 import Test.Sandwich.Contexts.Nix
-import UnliftIO.Directory
-import UnliftIO.Exception (bracket)
 import UnliftIO (MonadUnliftIO)
+import UnliftIO.Directory
+import UnliftIO.Exception
 import UnliftIO.Process
+import qualified "lsp-test" Language.LSP.Test as LSP hiding (message)
+import qualified Data.Set as S
+import qualified Data.Text as T
+import qualified Data.Text.IO as TIO
+import qualified Language.LSP.Test.Helpers as Helpers
+import qualified System.Directory as Dir
 
 
 doNotebookSession :: (
@@ -143,3 +143,37 @@ introduceMaybeBubblewrap = introduceWith [i|maybeBubblewrap|] Helpers.maybeBubbl
       info [i|Found bubblewrap at: #{path}|]
       void $ action (Just path)
 #endif
+
+introduceCnls :: forall context m. (
+  HasBaseContext context, HasNixContext context, MonadUnliftIO m
+  )
+  => SpecFree (LabelValue "file-cpp-notebook-language-server" (EnvironmentFile "cpp-notebook-language-server") :> context) m ()
+  -> SpecFree context m ()
+introduceCnls = introduce [i|cpp-notebook-language-server (binary via Nix derivation)|] (Label :: Label "file-cpp-notebook-language-server" (EnvironmentFile "cpp-notebook-language-server")) alloc (const $ return ())
+  where
+    alloc = do
+      projectRoot <- getProjectRoot
+      dir <- buildNixCallPackageDerivation (cppNotebookLanguageServerDerivation projectRoot)
+      liftIO (findExecutablesInDirectories [dir </> "bin"] "cpp-notebook-language-server") >>= \case
+        (x:_) -> return (EnvironmentFile x :: EnvironmentFile "cpp-notebook-language-server")
+        _ -> expectationFailure [i|Couldn't find binary in #{dir </> "bin"}|]
+
+cppNotebookLanguageServerDerivation :: FilePath -> T.Text
+cppNotebookLanguageServerDerivation projectRoot = [i|
+{ ... }:
+
+let
+  flake = builtins.getFlake "#{projectRoot}";
+in flake.packages.x86_64-linux.default
+|]
+
+
+getProjectRoot :: (HasCallStack, MonadIO m) => m FilePath
+getProjectRoot = do
+  startDir <- getCurrentDirectory
+  flip fix startDir $ \loop dir -> do
+    doesDirectoryExist (dir </> ".git") >>= \case
+      True -> return dir
+      False -> let dir' = takeDirectory dir in
+                 if | dir == dir' -> throwIO $ userError [i|Couldn't find project root starting from #{startDir}|]
+                    | otherwise -> loop dir'
