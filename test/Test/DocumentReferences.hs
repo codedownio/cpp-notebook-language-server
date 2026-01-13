@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedLists #-}
 
-module Test.Hover where
+module Test.DocumentReferences where
 
 import Data.String.Interpolate
 import qualified Data.Text as T
@@ -11,7 +11,7 @@ import Transform.ServerRsp.Hover
 
 
 spec :: TopSpec
-spec = describe "Hover" $ do
+spec = describe "DocumentReferences" $ do
   describe "fixes up document references" $ do
     it "Basic case" $ do
       (_projected, transformer) <- project transformerParams (listToDoc hoverLines)

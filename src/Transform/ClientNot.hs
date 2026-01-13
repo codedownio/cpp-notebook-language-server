@@ -16,7 +16,6 @@ import Data.Aeson as A
 import Data.Map as M
 import Data.String.Interpolate
 import Data.Text as T
-import qualified Data.Text.IO as T
 import qualified Data.Text.Rope as Rope
 import Data.Time
 import qualified Data.UUID.V4 as UUID
@@ -25,9 +24,7 @@ import Language.LSP.Protocol.Lens as Lens
 import Language.LSP.Protocol.Message
 import Language.LSP.Protocol.Types
 import Language.LSP.Transformer
-import System.FilePath
 import Transform.ClientNot.DidSave
-import Transform.Common
 import Transform.ServerRsp.Hover (mkDocRegex)
 import Transform.Util
 import UnliftIO.Concurrent

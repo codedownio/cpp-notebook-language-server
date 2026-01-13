@@ -13,7 +13,6 @@ import Control.Monad.Reader
 import Data.Aeson as A
 import Data.Proxy
 import Data.String.Interpolate
-import qualified Data.Text as T
 import Data.Time
 import GHC.TypeLits (sameSymbol)
 import Language.LSP.Protocol.Lens as Lens
