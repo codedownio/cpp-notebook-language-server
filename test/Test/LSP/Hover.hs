@@ -26,10 +26,10 @@ spec = describe "C++ LSP Hover Tests" $
   introduceBinaryViaNixPackage @"clangd" "clang-tools" $
   introduceCnls $ do
     it "hovers over variable declaration" $ do
-      let testCode = T.unlines [
-            "int x = 42;",
-            "float y = 3.14;"
-            ]
+      let testCode = [__i|
+int x = 42;
+float y = 3.14;
+|]
 
       doNotebookSession testCode $ \(Helpers.LspSessionInfo {..}) -> do
         doc <- LSP.openDoc lspSessionInfoFileName LanguageKind_CPP
@@ -43,13 +43,13 @@ spec = describe "C++ LSP Hover Tests" $
             liftIO $ hoverText `shouldContainText` "int"
 
     it "hovers over function call" $ do
-      let testCode = T.unlines [
-            "#include <iostream>",
-            "int main() {",
-            "  std::cout << \"Hello\" << std::endl;",
-            "  return 0;",
-            "}"
-            ]
+      let testCode = [__i|
+\#include <iostream>
+int main() {
+  std::cout << "Hello" << std::endl;
+  return 0;
+}
+|]
 
       doNotebookSession testCode $ \(Helpers.LspSessionInfo {..}) -> do
         doc <- LSP.openDoc lspSessionInfoFileName LanguageKind_CPP
