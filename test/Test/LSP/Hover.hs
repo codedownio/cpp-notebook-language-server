@@ -19,12 +19,12 @@ import qualified Data.Text as T
 import qualified Language.LSP.Test.Helpers as Helpers
 
 
-spec :: TopSpec
-spec = describe "C++ LSP Hover Tests" $
-  introduceMaybeBubblewrap $
-  introduceNixContext nixpkgsReleaseDefault $
-  introduceBinaryViaNixPackage @"clangd" "clang-tools" $
-  introduceCnls $ do
+spec :: (
+  Helpers.LspContext ctx m
+  , HasFile ctx "cpp-notebook-language-server"
+  , HasFile ctx "clangd"
+  ) => SpecFree ctx m ()
+spec = describe "C++ LSP Hover Tests" $ do
     it "hovers over variable declaration" $ do
       let testCode = [__i|
 int x = 42;
@@ -69,5 +69,5 @@ shouldContainText haystack needle =
     then return ()
     else expectationFailure [i|Expected "#{haystack}" to contain "#{needle}"|]
 
-main :: IO ()
-main = runSandwichWithCommandLineArgs defaultOptions spec
+-- main :: IO ()
+-- main = runSandwichWithCommandLineArgs defaultOptions spec

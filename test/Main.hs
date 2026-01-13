@@ -1,5 +1,10 @@
+{-# LANGUAGE DataKinds #-}
 
+import qualified Language.LSP.Test.Helpers as Helpers
 import Test.Sandwich
+import Test.Sandwich.Contexts.Files
+import Test.Sandwich.Contexts.Nix
+import TestLib.LSP
 
 import qualified Test.Hover
 import qualified Test.Pipeline
@@ -16,9 +21,13 @@ spec = do
   Test.Transformer.DeclarationSifter.spec
   Test.Pipeline.spec
 
-  Test.LSP.Hover.spec
-  Test.LSP.Completions.spec
-  Test.LSP.DocumentSymbols.spec
+  introduceMaybeBubblewrap $
+    introduceNixContext nixpkgsReleaseDefault $
+    introduceBinaryViaNixPackage @"clangd" "clang-tools" $
+    introduceCnls $ do
+      Test.LSP.Hover.spec
+      Test.LSP.Completions.spec
+      Test.LSP.DocumentSymbols.spec
 
 main :: IO ()
 main = runSandwichWithCommandLineArgs defaultOptions spec

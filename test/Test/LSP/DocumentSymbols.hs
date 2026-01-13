@@ -20,20 +20,20 @@ import qualified "lsp-test" Language.LSP.Test as LSP hiding (message)
 import qualified Data.Text as T
 import qualified Language.LSP.Test.Helpers as Helpers
 
-spec :: TopSpec
-spec = describe "C++ LSP Document Symbols Tests" $
-  introduceMaybeBubblewrap $
-  introduceNixContext nixpkgsReleaseDefault $
-  introduceBinaryViaNixPackage @"clangd" "clang-tools" $
-  introduceCnls $ do
 
+spec :: (
+  Helpers.LspContext ctx m
+  , HasFile ctx "cpp-notebook-language-server"
+  , HasFile ctx "clangd"
+  ) => SpecFree ctx m ()
+spec = describe "C++ LSP Document Symbols Tests" $ do
     it "finds symbols in simple class" $ do
       let testCode = [__i|
 class MyClass {
 public:
     int publicVar;
     void publicMethod();
-    
+
 private:
     double privateVar;
     void privateMethod();
@@ -50,12 +50,12 @@ namespace MyNamespace {
 
       doNotebookSession testCode $ \(Helpers.LspSessionInfo {..}) -> do
         doc <- LSP.openDoc lspSessionInfoFileName LanguageKind_CPP
-        
+
         -- Get document symbols
         symbols <- LSP.getDocumentSymbols doc
-        
+
         info [i|Got document symbols response|]
-        
+
         -- Just check that we get a response (symbols can be complex union types)
         liftIO $ return ()
 
@@ -83,11 +83,11 @@ enum Color { RED, GREEN, BLUE };
 
       doNotebookSession testCode $ \(Helpers.LspSessionInfo {..}) -> do
         doc <- LSP.openDoc lspSessionInfoFileName LanguageKind_CPP
-        
+
         symbols <- LSP.getDocumentSymbols doc
-        
+
         info [i|Got template document symbols response|]
-        
+
         -- Just check that we get a response
         liftIO $ return ()
 
@@ -103,5 +103,5 @@ shouldBeAtLeast actual expected =
     then return ()
     else expectationFailure [i|Expected at least #{expected} but got #{actual}|]
 
-main :: IO ()
-main = runSandwichWithCommandLineArgs defaultOptions spec
+-- main :: IO ()
+-- main = runSandwichWithCommandLineArgs defaultOptions spec
