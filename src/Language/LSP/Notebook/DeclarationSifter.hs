@@ -59,14 +59,14 @@ instance Transformer DeclarationSifter where
       Just (Position l c) ->
         -- Then handle wrapper transformation if applicable
         if hasWrapper && l >= fromIntegral wStart
-        then Just $ Position (l + 1) c  -- Account for wrapper function start line
+        then Just $ Position (l + 1) (c + 2)  -- Account for wrapper function start line AND indentation
         else Just $ Position l c
 
   untransformPosition :: Params DeclarationSifter -> DeclarationSifter -> Position -> Maybe Position
   untransformPosition _ (DeclarationSifter indices hasWrapper wStart wEnd) (Position l c) =
     -- First undo wrapper transformation if applicable
     let unwrappedPos = if hasWrapper && l > fromIntegral wStart && l <= fromIntegral wEnd
-                       then Position (l - 1) c  -- Remove wrapper function indentation
+                       then Position (l - 1) (if c >= 2 then c - 2 else 0)  -- Remove wrapper function line AND indentation
                        else Position l c
     -- Then undo sifting transformation
     in Just $ untransformUsingIndices indices unwrappedPos
@@ -225,7 +225,7 @@ wrapInFunction functionName executableLines =
       functionEnd = "}"
       -- Filter out empty lines at the beginning and end
       trimmedLines = dropWhile (T.null . T.strip) $ reverse $ dropWhile (T.null . T.strip) $ reverse executableLines
-      indentedBody = map ("  " <>) trimmedLines
+      indentedBody = map (\l -> if T.null l then l else "  " <> l) trimmedLines
   in if null trimmedLines
      then []  -- No executable lines to wrap
      else [""] ++ [functionStart] ++ indentedBody ++ [functionEnd]

@@ -10,7 +10,6 @@ import Language.LSP.Transformer
 import Test.Sandwich
 
 
--- Test input with multi-line declarations that should be preserved
 testCode :: T.Text
 testCode = [__i|
   \#include <iostream>
@@ -33,9 +32,8 @@ testCode = [__i|
   cout << "After class definition" << endl;
   |]
 
--- Expected output with declarations properly sifted and multi-line structures preserved
-expectedSiftedOutput :: T.Text
-expectedSiftedOutput = [__i|
+expectedFinalOutput :: T.Text
+expectedFinalOutput = [__i|
   \#include <iostream>
   \#include <vector>
   using namespace std;
@@ -46,85 +44,23 @@ expectedSiftedOutput = [__i|
   };
   int x = 42;
 
-  // This is a comment
+  void __notebook_exec() {
+    // This is a comment
 
 
-  cout << "Hello from the top!" << endl;
+    cout << "Hello from the top!" << endl;
 
 
-  cout << "After class definition" << endl;
 
-  |]
+    cout << "After class definition" << endl;
+  }|]
 
 spec :: TopSpec
 spec = describe "DeclarationSifter" $ do
-  it "should preserve complete multi-line declarations and wrap executables" $ do
+  it "produces expected output" $ do
     let inputDoc = listToDoc (T.splitOn "\n" testCode)
-    (outputDoc, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__test_exec") inputDoc
-    let outputLines = docToList outputDoc
-        outputText = T.intercalate "\n" outputLines
-
-    -- Check that wrapper was created (since we have executable statements)
-    hasExecutableWrapper sifter `shouldBe` True
-
-    -- The key test: class should be preserved as a complete 5-line block
-    let classStartIdx = findClassStart outputLines
-    case classStartIdx of
-      Nothing -> error "Class declaration not found in output"
-      Just idx -> do
-        let classBlock = take 5 (drop idx outputLines)
-            expectedClassBlock = [ "class MyClass {"
-                                 , "public:"
-                                 , "    int value;"
-                                 , "    void print() { cout << \"Class method\" << endl; }"
-                                 , "};"
-                                 ]
-        classBlock `shouldBe` expectedClassBlock
-
-    -- Should also have wrapped the executable statements
-    T.isInfixOf "void __test_exec() {" outputText `shouldBe` True
-
-  it "should move declarations to top in correct order" $ do
-    let inputDoc = listToDoc (T.splitOn "\n" testCode)
-    (outputDoc, _ :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "") inputDoc
-    let outputLines = docToList outputDoc
-
-    -- Check that includes come first, then using, then class, then variables
-    (length outputLines >= 4) `shouldBe` True
-    T.isPrefixOf "#include" (outputLines !! 0) `shouldBe` True
-    T.isPrefixOf "using namespace" (outputLines !! 2) `shouldBe` True
-    T.isPrefixOf "class" (outputLines !! 3) `shouldBe` True
-
-  it "should not fragment multi-line structures" $ do
-    let inputDoc = listToDoc (T.splitOn "\n" testCode)
-    (outputDoc, _ :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "") inputDoc
-    let outputText = T.intercalate "\n" $ docToList outputDoc
-
-    -- Anti-regression test: ensure class is not fragmented
-    -- This was the original bug - class lines scattered throughout output
-    let classLines = [ "class MyClass {"
-                     , "public:"
-                     , "    int value;"
-                     , "    void print() { cout << \"Class method\" << endl; }"
-                     , "};"
-                     ]
-
-    -- All class lines should appear consecutively
-    containsConsecutiveLines classLines outputText `shouldBe` True
-
-  it "should wrap executable statements when requested" $ do
-    let inputDoc = listToDoc (T.splitOn "\n" testCode)
-    (outputDoc, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
-    let outputText = T.intercalate "\n" $ docToList outputDoc
-
-    -- Check that wrapper was created
-    hasExecutableWrapper sifter `shouldBe` True
-
-    -- Check that executable statements are wrapped in function
-    T.isInfixOf "void __notebook_exec() {" outputText `shouldBe` True
-    T.isInfixOf "  cout << \"Hello from the top!\" << endl;" outputText `shouldBe` True
-    T.isInfixOf "  cout << \"After class definition\" << endl;" outputText `shouldBe` True
-    T.isInfixOf "}" outputText `shouldBe` True
+    (outputDoc, _ :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
+    T.intercalate "\n" (docToList outputDoc) `shouldBe` expectedFinalOutput
 
   describe "position transformations" $ do
     it "should transform positions correctly after sifting" $ do
@@ -168,21 +104,38 @@ spec = describe "DeclarationSifter" $ do
           case untransformPosition (DeclarationSifterParams "cling-parser" "__notebook_exec") sifter posInWrapper of
             Nothing -> error "Untransform of wrapper position failed"
             Just _ -> return ()  -- Just verify it doesn't fail
+
+    it "transformPosition should add 2 to column for wrapped lines" $ do
+      let inputDoc = listToDoc (T.splitOn "\n" testCode)
+      (_, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
+      let params = DeclarationSifterParams "cling-parser" "__notebook_exec"
+
+      -- Line 7 in testCode is "cout << ..." which gets wrapped
+      let Position _ origCol = Position 7 5
+      case transformPosition params sifter (Position 7 5) of
+        Nothing -> error "Transform failed"
+        Just (Position _ newCol) -> newCol `shouldBe` (origCol + 2)
+
+    it "untransformPosition should subtract 2 from column for wrapped lines" $ do
+      let inputDoc = listToDoc (T.splitOn "\n" testCode)
+      (outputDoc, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
+      let outputLines = docToList outputDoc
+      let params = DeclarationSifterParams "cling-parser" "__notebook_exec"
+
+      -- Find indented line in wrapper, test column subtraction and clamping
+      case findIndex (T.isPrefixOf "  cout") outputLines of
+        Nothing -> error "Indented cout line not found"
+        Just idx -> do
+          let wrappedLine = fromIntegral idx
+          -- Column 10 -> 8
+          case untransformPosition params sifter (Position wrappedLine 10) of
+            Nothing -> error "Untransform failed"
+            Just (Position _ c) -> c `shouldBe` 8
+          -- Column 1 -> 0 (clamped)
+          case untransformPosition params sifter (Position wrappedLine 1) of
+            Nothing -> error "Untransform failed"
+            Just (Position _ c) -> c `shouldBe` 0
   where
     findIndex :: (a -> Bool) -> [a] -> Maybe Int
     findIndex _ [] = Nothing
     findIndex p (x:xs) = if p x then Just 0 else fmap (+1) (findIndex p xs)
-
--- Helper function to find where class starts in output
-findClassStart :: [T.Text] -> Maybe Int
-findClassStart lines = findIndex (T.isPrefixOf "class MyClass") lines
-  where
-    findIndex :: (a -> Bool) -> [a] -> Maybe Int
-    findIndex _ [] = Nothing
-    findIndex p (x:xs) = if p x then Just 0 else fmap (+1) (findIndex p xs)
-
--- Helper function to check if lines appear consecutively
-containsConsecutiveLines :: [T.Text] -> T.Text -> Bool
-containsConsecutiveLines targetLines text =
-  let targetStr = T.intercalate "\n" targetLines
-  in targetStr `T.isInfixOf` text
