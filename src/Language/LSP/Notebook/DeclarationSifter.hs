@@ -4,6 +4,8 @@
 module Language.LSP.Notebook.DeclarationSifter where
 
 import Control.Monad.IO.Class
+import Data.List (sort)
+import qualified Data.Set as Set
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Vector (Vector)
@@ -59,14 +61,14 @@ instance Transformer DeclarationSifter where
       Just (Position l c) ->
         -- Then handle wrapper transformation if applicable
         if hasWrapper && l >= fromIntegral wStart
-        then Just $ Position (l + 1) (c + 2)  -- Account for wrapper function start line AND indentation
+        then Just $ Position (l + 2) (c + 2)  -- Account for wrapper (empty line + function header) AND indentation
         else Just $ Position l c
 
   untransformPosition :: Params DeclarationSifter -> DeclarationSifter -> Position -> Maybe Position
   untransformPosition _ (DeclarationSifter indices hasWrapper wStart wEnd) (Position l c) =
     -- First undo wrapper transformation if applicable
     let unwrappedPos = if hasWrapper && l > fromIntegral wStart && l <= fromIntegral wEnd
-                       then Position (l - 1) (if c >= 2 then c - 2 else 0)  -- Remove wrapper function line AND indentation
+                       then Position (l - 2) (if c >= 2 then c - 2 else 0)  -- Remove wrapper (empty line + function header) AND indentation
                        else Position l c
     -- Then undo sifting transformation
     in Just $ untransformUsingIndices indices unwrappedPos
@@ -98,8 +100,8 @@ siftDeclarations originalLines declarations =
       functionRanges = [range | (Function, range) <- declRanges]
       varRanges = [range | (Var, range) <- declRanges]
 
-      -- Get all sifted line indices (0-based) - fixed order
-      allSiftedIndices = concatMap rangeToIndices (includeRanges ++ usingRanges ++ classRanges ++ functionRanges ++ varRanges)
+      -- Get all sifted line indices (0-based) - must be sorted for binarySearch
+      allSiftedIndices = sort $ concatMap rangeToIndices (includeRanges ++ usingRanges ++ classRanges ++ functionRanges ++ varRanges)
 
       -- Extract lines by declaration type groups (maintain proper order)
       indexedLines = zip [0..] originalLines
@@ -197,13 +199,16 @@ transformUsingIndices indices (Position l c) =
 
 untransformUsingIndices :: Vector Int -> Position -> Position
 untransformUsingIndices indices (Position l c)
-  | l < fromIntegral (V.length indices) =
-      Position (fromIntegral (indices V.! fromIntegral l)) c
-  | otherwise = Position finalL c
+  | l < fromIntegral len = Position (fromIntegral (indices V.! fromIntegral l)) c
+  | otherwise = Position (fromIntegral $ findNthNonSifted remainingIdx 0 0) c
   where
-    finalL = case V.length indices of
-      0 -> l
-      len -> l + fromIntegral (indices V.! (len - 1))
+    len = V.length indices
+    remainingIdx = fromIntegral l - len
+    siftedSet = Set.fromList (V.toList indices)
+    findNthNonSifted target count lineNum
+      | lineNum `Set.member` siftedSet = findNthNonSifted target count (lineNum + 1)
+      | count == target = lineNum
+      | otherwise = findNthNonSifted target (count + 1) (lineNum + 1)
 
 binarySearch :: Vector Int -> Int -> (Int, Bool)
 binarySearch vec target = go 0 (V.length vec)

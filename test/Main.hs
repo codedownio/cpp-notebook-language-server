@@ -8,6 +8,7 @@ import TestLib.LSP
 import qualified Test.DocumentReferences
 
 import qualified Test.Transformer.DeclarationSifter
+import qualified Test.Transformer.DeclarationSifter2
 
 import qualified Test.Pipeline
 
@@ -21,6 +22,7 @@ spec = do
   Test.DocumentReferences.spec
 
   Test.Transformer.DeclarationSifter.spec
+  Test.Transformer.DeclarationSifter2.spec
 
   Test.Pipeline.spec
 

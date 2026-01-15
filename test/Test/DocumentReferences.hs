@@ -32,9 +32,9 @@ spec = describe "DocumentReferences" $ do
 
 hoverLines :: [T.Text]
 hoverLines = [
-  "foo = 42"
-  , "putStrLn foo"
-  , "import Data.Aeson"
+  "int foo = 42;"
+  , "std::cout << foo << std::endl;"
+  , "#include <iostream>"
   ]
 
 main :: IO ()

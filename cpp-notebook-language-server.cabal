@@ -132,6 +132,7 @@ test-suite cpp-notebook-language-server-test
       Test.LSP.Hover
       Test.Pipeline
       Test.Transformer.DeclarationSifter
+      Test.Transformer.DeclarationSifter2
       TestLib.Common
       TestLib.Core
       TestLib.Generators
