@@ -5,7 +5,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 
-module Test.LSP.Hover where
+module Test.Hover where
 
 import Control.Monad.IO.Unlift
 import Data.String.Interpolate

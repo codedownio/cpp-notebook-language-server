@@ -126,13 +126,13 @@ test-suite cpp-notebook-language-server-test
   type: exitcode-stdio-1.0
   main-is: Main.hs
   other-modules:
+      Test.Completions
       Test.DocumentReferences
-      Test.LSP.Completions
-      Test.LSP.DocumentSymbols
-      Test.LSP.Hover
-      Test.Pipeline
+      Test.DocumentSymbols
+      Test.Hover
       Test.Transformer.DeclarationSifter
       Test.Transformer.DeclarationSifter2
+      Test.Transformer.Pipeline
       TestLib.Common
       TestLib.Core
       TestLib.Generators

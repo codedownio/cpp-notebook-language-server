@@ -5,7 +5,7 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeOperators #-}
 
-module Test.LSP.DocumentSymbols where
+module Test.DocumentSymbols where
 
 import Control.Monad.IO.Unlift
 import Data.String.Interpolate

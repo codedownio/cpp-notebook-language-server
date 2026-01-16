@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Test.Pipeline where
+module Test.Transformer.Pipeline where
 
 import Data.String.Interpolate
 import qualified Data.Text as T

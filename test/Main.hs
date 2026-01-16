@@ -9,12 +9,11 @@ import qualified Test.DocumentReferences
 
 import qualified Test.Transformer.DeclarationSifter
 import qualified Test.Transformer.DeclarationSifter2
+import qualified Test.Transformer.Pipeline
 
-import qualified Test.Pipeline
-
-import qualified Test.LSP.Hover
-import qualified Test.LSP.Completions
-import qualified Test.LSP.DocumentSymbols
+import qualified Test.Hover
+import qualified Test.Completions
+import qualified Test.DocumentSymbols
 
 
 spec :: TopSpec
@@ -23,17 +22,16 @@ spec = do
 
   Test.Transformer.DeclarationSifter.spec
   Test.Transformer.DeclarationSifter2.spec
-
-  Test.Pipeline.spec
+  Test.Transformer.Pipeline.spec
 
   describe "Integration tests" $
     introduceMaybeBubblewrap $
     introduceNixContext nixpkgsReleaseDefault $
     introduceBinaryViaNixPackage @"clangd" "clang-tools" $
     introduceCnls $ do
-      Test.LSP.Hover.spec
-      Test.LSP.Completions.spec
-      Test.LSP.DocumentSymbols.spec
+      Test.Hover.spec
+      Test.Completions.spec
+      Test.DocumentSymbols.spec
 
 main :: IO ()
 main = runSandwichWithCommandLineArgs defaultOptions spec
