@@ -4,7 +4,7 @@
 module Language.LSP.Notebook.DeclarationSifter where
 
 import Control.Monad.IO.Class
-import Data.List (sort)
+import qualified Data.Map as Map
 import qualified Data.Set as Set
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -100,8 +100,9 @@ siftDeclarations originalLines declarations =
       functionRanges = [range | (Function, range) <- declRanges]
       varRanges = [range | (Var, range) <- declRanges]
 
-      -- Get all sifted line indices (0-based) - must be sorted for binarySearch
-      allSiftedIndices = sort $ concatMap rangeToIndices (includeRanges ++ usingRanges ++ classRanges ++ functionRanges ++ varRanges)
+      -- Get all sifted line indices (0-based) - in OUTPUT order (not sorted!)
+      -- This order must match siftedLines for position transformation to work
+      allSiftedIndices = concatMap rangeToIndices (includeRanges ++ usingRanges ++ classRanges ++ functionRanges ++ varRanges)
 
       -- Extract lines by declaration type groups (maintain proper order)
       indexedLines = zip [0..] originalLines
@@ -193,9 +194,16 @@ isFunctionPattern line =
 -- Position transformation utilities
 transformUsingIndices :: Vector Int -> Position -> Maybe Position
 transformUsingIndices indices (Position l c) =
-  case binarySearch indices (fromIntegral l) of
-    (i, True) -> Just (Position (fromIntegral i) c)
-    (i, False) -> Just (Position (l + fromIntegral (V.length indices - i)) c)
+  let -- Build a map from original line index to output position
+      siftedMap = Map.fromList [(idx, pos) | (pos, idx) <- zip [0..] (V.toList indices)]
+      siftedSet = Set.fromList (V.toList indices)
+      origLine = fromIntegral l
+  in case Map.lookup origLine siftedMap of
+       Just outputPos -> Just (Position (fromIntegral outputPos) c)
+       Nothing ->
+         -- Line is not sifted, count non-sifted lines before it
+         let nonSiftedBefore = length [i | i <- [0..origLine-1], i `Set.notMember` siftedSet]
+         in Just (Position (fromIntegral (V.length indices + nonSiftedBefore)) c)
 
 untransformUsingIndices :: Vector Int -> Position -> Position
 untransformUsingIndices indices (Position l c)
@@ -209,19 +217,6 @@ untransformUsingIndices indices (Position l c)
       | lineNum `Set.member` siftedSet = findNthNonSifted target count (lineNum + 1)
       | count == target = lineNum
       | otherwise = findNthNonSifted target (count + 1) (lineNum + 1)
-
-binarySearch :: Vector Int -> Int -> (Int, Bool)
-binarySearch vec target = go 0 (V.length vec)
-  where
-    go lb ub
-      | lb == ub = (lb, False)
-      | otherwise =
-          let mid = (lb + ub) `div` 2
-              midVal = vec V.! mid
-          in case midVal `compare` target of
-               LT -> go (mid + 1) ub
-               EQ -> (mid, True)
-               GT -> go lb mid
 
 -- Wrap executable lines in a function
 wrapInFunction :: Text -> [Text] -> [Text]

@@ -5,12 +5,13 @@ module Test.Transformer.Pipeline where
 import Data.String.Interpolate
 import qualified Data.Text as T
 import Language.LSP.Notebook.DeclarationSifter
+import Language.LSP.Protocol.Types (Position(..))
 import Language.LSP.Transformer
 import Test.Sandwich
 
--- Test input: mixed declarations and executable statements (like a notebook)
-testInput :: T.Text
-testInput = [__i|
+
+testCode :: T.Text
+testCode = [__i|
   \#include <iostream>
   using namespace std;
   cout << "hello" << endl;
@@ -20,7 +21,6 @@ testInput = [__i|
   cout << "after" << endl;
   |]
 
--- Expected final output after full pipeline (no main wrapper)
 expectedFinalOutput :: T.Text
 expectedFinalOutput = [__i|
   \#include <iostream>
@@ -32,92 +32,70 @@ expectedFinalOutput = [__i|
   void __notebook_exec() {
     cout << "hello" << endl;
     cout << "after" << endl;
-  }
-  |]
+  }|]
 
 spec :: TopSpec
-spec = describe "Full Pipeline" $ do
+spec = describe "Pipeline" $ do
+  it "produces expected output" $ do
+    let inputDoc = listToDoc (T.splitOn "\n" testCode)
+    (outputDoc, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
+    -- Verify sifted indices are in OUTPUT order: include[0], using[1], class[4], func[5], var[3]
+    show sifter `shouldContain` "[0,1,4,5,3]"
+    T.intercalate "\n" (docToList outputDoc) `shouldBe` expectedFinalOutput
 
-  it "should transform notebook code to valid C++ through full pipeline" $ do
-    let inputDoc = listToDoc (T.splitOn "\n" testInput)
+  describe "position transformations" $ do
+    it "transforms #include (sifted, stays at line 0)" $ do
+      let inputDoc = listToDoc (T.splitOn "\n" testCode)
+      (_, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
+      let params = DeclarationSifterParams "cling-parser" "__notebook_exec"
 
-    -- Step 1: DeclarationSifter (with wrapping disabled for separate testing)
-    (siftedDoc, _ :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "") inputDoc
-    let siftedText = T.intercalate "\n" $ docToList siftedDoc
+      -- #include is at line 0 in input, stays at line 0 in output
+      Just pos <- return $ transformPosition params sifter (Position 0 0)
+      pos `shouldBe` Position 0 0
 
-    -- Verify DeclarationSifter moved declarations to top
-    T.isPrefixOf "#include" siftedText `shouldBe` True
-    T.isInfixOf "using namespace std;" siftedText `shouldBe` True
-    T.isInfixOf "class MyClass {};" siftedText `shouldBe` True
+    it "untransforms #include" $ do
+      let inputDoc = listToDoc (T.splitOn "\n" testCode)
+      (_, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
+      let params = DeclarationSifterParams "cling-parser" "__notebook_exec"
 
-    -- Step 2: Use DeclarationSifter with wrapping (replaces ExecutableWrapper)
-    (wrappedDoc, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
-    let wrappedText = T.intercalate "\n" $ docToList wrappedDoc
+      Just pos <- return $ untransformPosition params sifter (Position 0 0)
+      pos `shouldBe` Position 0 0
 
-    -- Verify DeclarationSifter wrapped executable statements
-    hasExecutableWrapper sifter `shouldBe` True
-    T.isInfixOf "void __notebook_exec() {" wrappedText `shouldBe` True
-    T.isInfixOf "  cout << \"hello\" << endl;" wrappedText `shouldBe` True
-    T.isInfixOf "  cout << \"after\" << endl;" wrappedText `shouldBe` True
+    it "transforms var (sifted but moved)" $ do
+      let inputDoc = listToDoc (T.splitOn "\n" testCode)
+      (_, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
+      let params = DeclarationSifterParams "cling-parser" "__notebook_exec"
 
-    -- Step 3: No main wrapper (removed as requested)
-    let finalDoc = wrappedDoc  -- No additional transformation
-        finalText = T.intercalate "\n" $ docToList finalDoc
+      -- int x is at line 3 in input, should move to line 4 in output (include, using, class, func, VAR)
+      Just pos <- return $ transformPosition params sifter (Position 3 0)
+      pos `shouldBe` Position 4 0
 
-    -- Verify no main() wrapper was added
-    T.isInfixOf "int main() {" finalText `shouldBe` False
+    it "untransforms var" $ do
+      let inputDoc = listToDoc (T.splitOn "\n" testCode)
+      (_, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
+      let params = DeclarationSifterParams "cling-parser" "__notebook_exec"
 
-    -- Verify final structure looks correct (declarations at top, executable code wrapped)
-    let finalLines = T.splitOn "\n" finalText
-    (length finalLines > 5) `shouldBe` True  -- Should have substantial content
+      Just pos <- return $ untransformPosition params sifter (Position 4 0)
+      pos `shouldBe` Position 3 0
 
-  it "should preserve declaration order and structure" $ do
-    let inputDoc = listToDoc (T.splitOn "\n" testInput)
+    it "transforms cout (executable, wrapped with indent)" $ do
+      let inputDoc = listToDoc (T.splitOn "\n" testCode)
+      (_, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
+      let params = DeclarationSifterParams "cling-parser" "__notebook_exec"
 
-    -- Run full pipeline (DeclarationSifter does everything, no main wrapper)
-    (finalDoc, _ :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
+      -- First cout is at line 2 col 0 in input
+      -- In output: 5 sifted lines (0-4), then wrapper at line 5-9
+      -- The cout should be at line 7 with +2 column indent
+      Just pos <- return $ transformPosition params sifter (Position 2 0)
+      pos `shouldBe` Position 7 2
 
-    let finalText = T.intercalate "\n" $ docToList finalDoc
-        finalLines = T.splitOn "\n" finalText
+    it "untransforms cout" $ do
+      let inputDoc = listToDoc (T.splitOn "\n" testCode)
+      (_, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
+      let params = DeclarationSifterParams "cling-parser" "__notebook_exec"
 
-    -- Check structure: includes first, then other declarations, then executable function (no main)
-    case finalLines of
-      [] -> error "No output"
-      (firstLine:_) -> T.isPrefixOf "#include" firstLine `shouldBe` True
-
-    -- Check that declarations come before executable wrapper
-    let includePos = findSubstring "#include" finalText
-        execPos = findSubstring "void __notebook_exec()" finalText
-
-    (includePos < execPos) `shouldBe` True
-
-  it "should work with combined DeclarationSifter that wraps executables" $ do
-    let inputDoc = listToDoc (T.splitOn "\n" testInput)
-
-    -- Use DeclarationSifter with wrapping enabled (no need for ExecutableWrapper)
-    (siftedWrappedDoc, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
-    let siftedWrappedText = T.intercalate "\n" $ docToList siftedWrappedDoc
-
-    -- Verify it did both sifting and wrapping
-    hasExecutableWrapper sifter `shouldBe` True
-    T.isPrefixOf "#include" siftedWrappedText `shouldBe` True
-    T.isInfixOf "void __notebook_exec() {" siftedWrappedText `shouldBe` True
-    T.isInfixOf "  cout << \"hello\" << endl;" siftedWrappedText `shouldBe` True
-
-    -- No main wrapper needed
-    let finalText = siftedWrappedText
-
-    -- Verify final output has wrapped executables (but no main)
-    T.isInfixOf "void __notebook_exec() {" finalText `shouldBe` True
-
--- Helper to find position of substring
-findSubstring :: T.Text -> T.Text -> Int
-findSubstring needle haystack =
-  case T.breakOn needle haystack of
-    (prefix, remaining) ->
-      if T.null remaining
-      then -1  -- Not found
-      else T.length prefix
+      Just pos <- return $ untransformPosition params sifter (Position 7 2)
+      pos `shouldBe` Position 2 0
 
 main :: IO ()
 main = runSandwichWithCommandLineArgs defaultOptions spec
