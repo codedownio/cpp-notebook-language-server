@@ -1,5 +1,5 @@
 name:                cpp-notebook-language-server
-version:             0.1.0.1
+version:             0.1.0.2
 
 extra-source-files:
 - README.md
