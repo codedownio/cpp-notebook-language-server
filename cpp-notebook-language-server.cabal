@@ -130,9 +130,9 @@ test-suite cpp-notebook-language-server-test
       Test.DocumentReferences
       Test.DocumentSymbols
       Test.Hover
-      Test.Transformer.DeclarationSifter
-      Test.Transformer.DeclarationSifter2
-      Test.Transformer.Pipeline
+      Test.Transformer.Example1
+      Test.Transformer.Example2
+      Test.Transformer.Example3
       TestLib.Common
       TestLib.Core
       TestLib.Generators

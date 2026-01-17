@@ -7,9 +7,9 @@ import TestLib.LSP
 
 import qualified Test.DocumentReferences
 
-import qualified Test.Transformer.DeclarationSifter
-import qualified Test.Transformer.DeclarationSifter2
-import qualified Test.Transformer.Pipeline
+import qualified Test.Transformer.Example1
+import qualified Test.Transformer.Example2
+import qualified Test.Transformer.Example3
 
 import qualified Test.Hover
 import qualified Test.Completions
@@ -20,9 +20,9 @@ spec :: TopSpec
 spec = do
   Test.DocumentReferences.spec
 
-  Test.Transformer.DeclarationSifter.spec
-  Test.Transformer.DeclarationSifter2.spec
-  Test.Transformer.Pipeline.spec
+  Test.Transformer.Example1.spec
+  Test.Transformer.Example2.spec
+  Test.Transformer.Example3.spec
 
   describe "Integration tests" $
     introduceMaybeBubblewrap $

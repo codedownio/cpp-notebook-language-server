@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Test.Transformer.Pipeline where
+module Test.Transformer.Example3 where
 
 import Data.String.Interpolate
 import qualified Data.Text as T
@@ -35,7 +35,7 @@ expectedFinalOutput = [__i|
   }|]
 
 spec :: TopSpec
-spec = describe "Pipeline" $ do
+spec = describe "Example3" $ do
   it "produces expected output" $ do
     let inputDoc = listToDoc (T.splitOn "\n" testCode)
     (outputDoc, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
@@ -96,6 +96,23 @@ spec = describe "Pipeline" $ do
 
       Just pos <- return $ untransformPosition params sifter (Position 7 2)
       pos `shouldBe` Position 2 0
+
+    it "transforms second cout" $ do
+      let inputDoc = listToDoc (T.splitOn "\n" testCode)
+      (_, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
+      let params = DeclarationSifterParams "cling-parser" "__notebook_exec"
+
+      -- Second cout is at line 6 col 0 in input, should be at line 8 col 2 in output
+      Just pos <- return $ transformPosition params sifter (Position 6 0)
+      pos `shouldBe` Position 8 2
+
+    it "untransforms second cout" $ do
+      let inputDoc = listToDoc (T.splitOn "\n" testCode)
+      (_, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
+      let params = DeclarationSifterParams "cling-parser" "__notebook_exec"
+
+      Just pos <- return $ untransformPosition params sifter (Position 8 2)
+      pos `shouldBe` Position 6 0
 
 main :: IO ()
 main = runSandwichWithCommandLineArgs defaultOptions spec

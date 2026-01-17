@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Test.Transformer.DeclarationSifter2 where
+module Test.Transformer.Example2 where
 
 import Data.String.Interpolate
 import qualified Data.Text as T
@@ -24,7 +24,7 @@ expectedFinalOutput = [__i|\#include <cmath>
                           |]
 
 spec :: TopSpec
-spec = describe "DeclarationSifter2" $ do
+spec = describe "Example2" $ do
   it "produces expected output" $ do
     let inputDoc = listToDoc (T.splitOn "\n" testCode)
     (outputDoc, _ :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
