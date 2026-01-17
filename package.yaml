@@ -92,13 +92,11 @@ tests:
     - -W
     dependencies:
     - QuickCheck
-    - aeson
     - containers
     - cpp-notebook-language-server
     - directory
     - exceptions
     - filepath
-    - hspec
     - lens
     - lsp-test
     - lsp-test-helpers
@@ -106,12 +104,9 @@ tests:
     - monad-logger
     - mtl
     - myers-diff
-    - process
     - quickcheck-instances
-    - row-types
     - sandwich
     - sandwich-contexts
-    - sandwich-quickcheck
     - string-interpolate
     - temporary
     - text-rope

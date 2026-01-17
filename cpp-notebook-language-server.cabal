@@ -159,14 +159,12 @@ test-suite cpp-notebook-language-server-test
   ghc-options: -Wunused-packages -Wall -fno-warn-name-shadowing -threaded -rtsopts -with-rtsopts=-N -O2 -W
   build-depends:
       QuickCheck
-    , aeson
     , base >=4.7 && <5
     , containers
     , cpp-notebook-language-server
     , directory
     , exceptions
     , filepath
-    , hspec
     , lens
     , lsp-test
     , lsp-test-helpers
@@ -174,12 +172,9 @@ test-suite cpp-notebook-language-server-test
     , monad-logger
     , mtl
     , myers-diff
-    , process
     , quickcheck-instances
-    , row-types
     , sandwich
     , sandwich-contexts
-    , sandwich-quickcheck
     , string-interpolate
     , temporary
     , text

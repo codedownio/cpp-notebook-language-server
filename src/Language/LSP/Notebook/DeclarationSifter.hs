@@ -1,10 +1,15 @@
-{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE TypeFamilies #-}
 
-module Language.LSP.Notebook.DeclarationSifter where
+module Language.LSP.Notebook.DeclarationSifter (
+  DeclarationSifter
+  , DeclarationSifterParams(..)
+  ) where
 
 import Control.Monad.IO.Class
-import qualified Data.Map as Map
+import Data.List (sort)
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -16,209 +21,173 @@ import Language.LSP.Transformer
 import System.Exit (ExitCode(..))
 import UnliftIO.Process
 
-data DeclarationSifter = DeclarationSifter
-  { siftedLines :: Vector Int  -- Lines that were moved to the top
-  , hasExecutableWrapper :: Bool  -- Whether we wrapped executable statements
-  , wrapperStartLine :: Int  -- Where the wrapper function starts (after sifting)
-  , wrapperEndLine :: Int  -- Where the wrapper function ends
+
+data DeclarationSifter = DeclarationSifter {
+  siftedIndices :: Vector Int         -- Original line indices in OUTPUT order (for untransform)
+  , siftedIndicesSorted :: Vector Int -- Sorted for binary search (for transform count-less-than)
+  , siftedMap :: Map Int Int          -- orig line → output position (for transform of sifted lines)
+  , nonSiftedIndices :: Vector Int    -- Non-sifted original line indices in order (for untransform)
+  , hasExecutableWrapper :: Bool
+  , wrapperStartLine :: Int
+  , wrapperEndLine :: Int
   } deriving Show
 
-data DeclarationSifterParams = DeclarationSifterParams
-  { parserCommand :: FilePath
+data DeclarationSifterParams = DeclarationSifterParams {
+  parserCommand :: FilePath
   , execFunctionName :: Text  -- Name of the wrapper function (e.g. "__notebook_exec")
   } deriving Show
 
 instance Transformer DeclarationSifter where
   type Params DeclarationSifter = DeclarationSifterParams
 
-  getParams (DeclarationSifter _ _ _ _) = DeclarationSifterParams "cling-parser" "__notebook_exec"
+  getParams _ = DeclarationSifterParams "cling-parser" "__notebook_exec"
 
   project :: MonadIO m => Params DeclarationSifter -> Doc -> m (Doc, DeclarationSifter)
   project params doc = do
     result <- parseCppCode params doc
     let originalLines = docToList doc
     case result of
-      Left _err -> return (doc, DeclarationSifter V.empty False 0 0) -- fallback to no transformation
+      Left _err -> return (doc, mkEmptySifter) -- fallback to no transformation
       Right declarations -> do
-        let (siftedLines, remainingLines, siftedIndices) = siftDeclarations originalLines declarations
+        let (siftedLineTexts, remainingLineTexts, siftedIdxs, nonSiftedIdxs) = siftDeclarations originalLines declarations
 
         -- Always wrap remaining executable lines (if any exist)
-        if not (null remainingLines) && any (not . T.null . T.strip) remainingLines
+        if not (null remainingLineTexts) && any (not . T.null . T.strip) remainingLineTexts
           then do
-            let wrappedLines = wrapInFunction (execFunctionName params) remainingLines
-                allLines = siftedLines ++ wrappedLines
-                wrapperStart = length siftedLines
-                wrapperEnd = length allLines - 1  -- Last line of wrapped function
-            return (listToDoc allLines, DeclarationSifter (V.fromList siftedIndices) True wrapperStart wrapperEnd)
+            let wrappedLines = wrapInFunction (execFunctionName params) remainingLineTexts
+                allLines = siftedLineTexts ++ wrappedLines
+                wrapperStart = length siftedLineTexts
+                wrapperEnd = length allLines - 1
+            return (listToDoc allLines, mkSifter siftedIdxs nonSiftedIdxs True wrapperStart wrapperEnd)
           else
-            return (listToDoc (siftedLines ++ remainingLines), DeclarationSifter (V.fromList siftedIndices) False 0 0)
+            return (listToDoc (siftedLineTexts ++ remainingLineTexts), mkSifter siftedIdxs nonSiftedIdxs False 0 0)
 
   transformPosition :: Params DeclarationSifter -> DeclarationSifter -> Position -> Maybe Position
-  transformPosition _ (DeclarationSifter indices hasWrapper wStart _) pos =
-    -- First apply sifting transformation
-    case transformUsingIndices indices pos of
-      Nothing -> Nothing
-      Just (Position l c) ->
-        -- Then handle wrapper transformation if applicable
-        if hasWrapper && l >= fromIntegral wStart
-        then Just $ Position (l + 2) (c + 2)  -- Account for wrapper (empty line + function header) AND indentation
-        else Just $ Position l c
+  transformPosition _ sifter pos = do
+    Position l c <- transformUsingIndices sifter pos
+    case hasExecutableWrapper sifter && l >= fromIntegral (wrapperStartLine sifter) of
+      True -> Just $ Position (l + 2) (c + 2)  -- Account for wrapper (empty line + function header) AND indentation
+      False -> Just $ Position l c
 
   untransformPosition :: Params DeclarationSifter -> DeclarationSifter -> Position -> Maybe Position
-  untransformPosition _ (DeclarationSifter indices hasWrapper wStart wEnd) (Position l c) =
-    -- First undo wrapper transformation if applicable
-    let unwrappedPos = if hasWrapper && l > fromIntegral wStart && l <= fromIntegral wEnd
-                       then Position (l - 2) (if c >= 2 then c - 2 else 0)  -- Remove wrapper (empty line + function header) AND indentation
+  untransformPosition _ sifter (Position l c) =
+    let unwrappedPos = if hasExecutableWrapper sifter && l > fromIntegral (wrapperStartLine sifter) && l <= fromIntegral (wrapperEndLine sifter)
+                       then Position (l - 2) (if c >= 2 then c - 2 else 0)
                        else Position l c
-    -- Then undo sifting transformation
-    in Just $ untransformUsingIndices indices unwrappedPos
+    in untransformUsingIndices sifter unwrappedPos
 
--- Parse C++ code using cling-parser
+mkSifter :: [Int] -> [Int] -> Bool -> Int -> Int -> DeclarationSifter
+mkSifter siftedIdxs nonSiftedIdxs hasWrapper wStart wEnd = DeclarationSifter {
+  siftedIndices = V.fromList siftedIdxs
+  , siftedIndicesSorted = V.fromList (sort siftedIdxs)
+  , siftedMap = Map.fromList [(idx, pos) | (pos, idx) <- zip [0..] siftedIdxs]
+  , nonSiftedIndices = V.fromList nonSiftedIdxs
+  , hasExecutableWrapper = hasWrapper
+  , wrapperStartLine = wStart
+  , wrapperEndLine = wEnd
+  }
+
+mkEmptySifter :: DeclarationSifter
+mkEmptySifter = DeclarationSifter V.empty V.empty Map.empty V.empty False 0 0
+
 parseCppCode :: MonadIO m => DeclarationSifterParams -> Doc -> m (Either String [CppDeclaration])
-parseCppCode DeclarationSifterParams{parserCommand} doc = do
+parseCppCode (DeclarationSifterParams {parserCommand}) doc = do
   let input = T.unpack (docToText doc)
   (exitCode, stdout, stderr) <- readCreateProcessWithExitCode (proc parserCommand []) input
   case exitCode of
     ExitSuccess -> return $ parseCppDeclarations (T.pack stdout)
     ExitFailure _ -> return $ Left ("cling-parser failed: " ++ stderr)
-
-docToText :: Doc -> Text
-docToText = T.intercalate "\n" . docToList
+  where
+    docToText :: Doc -> Text
+    docToText = T.intercalate "\n" . docToList
 
 -- Sift declarations to the top in the right order
--- Returns: (siftedLines, remainingLines, siftedIndices)
--- Fixed version - preserves complete multi-line declarations
-siftDeclarations :: [Text] -> [CppDeclaration] -> ([Text], [Text], [Int])
-siftDeclarations originalLines declarations =
-  let -- Extract line ranges for each declaration type
-      declRanges = [(declType decl, getLineRange decl) | decl <- declarations, isValidRange decl]
+-- Returns: (siftedLines, remainingLines, siftedIndices, nonSiftedIndices)
+siftDeclarations :: [Text] -> [CppDeclaration] -> ([Text], [Text], [Int], [Int])
+siftDeclarations originalLines declarations = (siftedLines, remainingLines, allSiftedIndices, nonSiftedIndices)
+  where
+    declRanges = [(declType decl, getLineRange decl) | decl <- declarations, isValidRange decl]
 
-      -- Group by declaration type in desired order
-      includeRanges = [range | (Include, range) <- declRanges]
-      usingRanges = [range | (UsingDirective, range) <- declRanges]
-      classRanges = [range | (CXXRecord, range) <- declRanges]
-      functionRanges = [range | (Function, range) <- declRanges]
-      varRanges = [range | (Var, range) <- declRanges]
+    -- Group by declaration type in desired order
+    includeRanges = [range | (Include, range) <- declRanges]
+    usingRanges = [range | (UsingDirective, range) <- declRanges]
+    classRanges = [range | (CXXRecord, range) <- declRanges]
+    functionRanges = [range | (Function, range) <- declRanges]
+    varRanges = [range | (Var, range) <- declRanges]
 
-      -- Get all sifted line indices (0-based) - in OUTPUT order (not sorted!)
-      -- This order must match siftedLines for position transformation to work
-      allSiftedIndices = concatMap rangeToIndices (includeRanges ++ usingRanges ++ classRanges ++ functionRanges ++ varRanges)
+    -- Get all sifted line indices (0-based) - in OUTPUT order (not sorted!)
+    -- This order must match siftedLines for position transformation to work
+    allSiftedIndices = concatMap rangeToIndices (includeRanges ++ usingRanges ++ classRanges ++ functionRanges ++ varRanges)
+    siftedSet = Set.fromList allSiftedIndices
 
-      -- Extract lines by declaration type groups (maintain proper order)
-      indexedLines = zip [0..] originalLines
+    -- Extract lines by declaration type groups (maintain proper order)
+    indexedLines = zip [0..] originalLines
 
-      -- Extract lines for each group separately to maintain order
-      includeLines = concatMap (extractLinesForRange indexedLines) includeRanges
-      usingLines = concatMap (extractLinesForRange indexedLines) usingRanges
-      classLines = concatMap (extractLinesForRange indexedLines) classRanges
-      functionLines = concatMap (extractLinesForRange indexedLines) functionRanges
-      varLines = concatMap (extractLinesForRange indexedLines) varRanges
+    -- Extract lines for each group separately to maintain order
+    includeLines = concatMap (extractLinesForRange indexedLines) includeRanges
+    usingLines = concatMap (extractLinesForRange indexedLines) usingRanges
+    classLines = concatMap (extractLinesForRange indexedLines) classRanges
+    functionLines = concatMap (extractLinesForRange indexedLines) functionRanges
+    varLines = concatMap (extractLinesForRange indexedLines) varRanges
 
-      siftedLines = includeLines ++ usingLines ++ classLines ++ functionLines ++ varLines
-      remainingLines = [line | (idx, line) <- indexedLines, idx `notElem` allSiftedIndices]
+    siftedLines = includeLines ++ usingLines ++ classLines ++ functionLines ++ varLines
+    -- Non-sifted lines and their indices (in original order)
+    nonSiftedWithIdx = [(idx, line) | (idx, line) <- indexedLines, idx `Set.notMember` siftedSet]
+    remainingLines = map snd nonSiftedWithIdx
+    nonSiftedIndices = map fst nonSiftedWithIdx
 
-  in (siftedLines, remainingLines, allSiftedIndices)
+    getLineRange :: CppDeclaration -> (Int, Int)
+    getLineRange (CppDeclaration {startLine = Just start, endLine = Just end}) = (start, end)
+    getLineRange (CppDeclaration {startLine = Just start, endLine = Nothing}) = (start, start)
+    getLineRange _ = (0, 0)
 
--- Helper functions for line range extraction
-getLineRange :: CppDeclaration -> (Int, Int)
-getLineRange CppDeclaration{startLine = Just start, endLine = Just end} = (start, end)
-getLineRange CppDeclaration{startLine = Just start, endLine = Nothing} = (start, start)
-getLineRange _ = (0, 0)
+    isValidRange :: CppDeclaration -> Bool
+    isValidRange (CppDeclaration {startLine = Just _, endLine = Just _}) = True
+    isValidRange (CppDeclaration {startLine = Just _, endLine = Nothing}) = True  -- Single line
+    isValidRange _ = False
 
-isValidRange :: CppDeclaration -> Bool
-isValidRange CppDeclaration{startLine = Just _, endLine = Just _} = True
-isValidRange CppDeclaration{startLine = Just _, endLine = Nothing} = True  -- Single line
-isValidRange _ = False
+    rangeToIndices :: (Int, Int) -> [Int]
+    rangeToIndices (start, end) = [start - 1 .. end - 1]  -- Convert to 0-based indexing
 
-rangeToIndices :: (Int, Int) -> [Int]
-rangeToIndices (start, end) = [start - 1 .. end - 1]  -- Convert to 0-based indexing
+    extractLinesForRange :: [(Int, Text)] -> (Int, Int) -> [Text]
+    extractLinesForRange indexedLines (start, end) =
+      let targetIndices = [start - 1 .. end - 1]  -- Convert to 0-based
+      in [line | (idx, line) <- indexedLines, idx `elem` targetIndices]
 
-extractLinesForRange :: [(Int, Text)] -> (Int, Int) -> [Text]
-extractLinesForRange indexedLines (start, end) =
-  let targetIndices = [start - 1 .. end - 1]  -- Convert to 0-based
-  in [line | (idx, line) <- indexedLines, idx `elem` targetIndices]
-
-data LineType = LineType_Include | LineType_Using | LineType_Class | LineType_Function | LineType_Var | LineType_Executable
-  deriving (Eq, Show)
-
--- Classify a line based on patterns and cling-parser declarations
-classifyLine :: [CppDeclaration] -> (Int, Text) -> (Int, Text, LineType)
-classifyLine declarations (idx, line) =
-  let lineNum = idx + 1 -- Convert to 1-based for declaration matching
-      stripped = T.strip line
-
-      -- Check if cling-parser identified this line
-      declAtLine = [decl | decl <- declarations, Just l <- [startLine decl], fromIntegral l == lineNum]
-
-      lineType = case declAtLine of
-        [decl] -> case declType decl of
-          UsingDirective -> LineType_Using
-          CXXRecord -> LineType_Class
-          Function -> LineType_Function
-          Var -> LineType_Var
-          _ -> classifyByPattern stripped
-        _ -> classifyByPattern stripped
-
-  in (idx, line, lineType)
-
--- Classify by text patterns (fallback when cling-parser doesn't detect)
-classifyByPattern :: Text -> LineType
-classifyByPattern stripped
-  | T.isPrefixOf "#include" stripped = LineType_Include
-  | T.isPrefixOf "using namespace" stripped = LineType_Using
-  | T.isPrefixOf "using " stripped = LineType_Using
-  | T.isPrefixOf "class " stripped = LineType_Class
-  | T.isPrefixOf "struct " stripped = LineType_Class
-  | isGlobalVarPattern stripped = LineType_Var
-  | isFunctionPattern stripped = LineType_Function
-  | T.null stripped = LineType_Executable  -- Empty lines go with executable
-  | T.isPrefixOf "//" stripped = LineType_Executable  -- Comments go with executable
-  | otherwise = LineType_Executable
-
--- Simple heuristic for global variable declarations
-isGlobalVarPattern :: Text -> Bool
-isGlobalVarPattern line =
-  let words = T.words line
-  in length words >= 3 &&
-     case words of
-       (firstWord:_) -> firstWord `elem` ["int", "double", "float", "char", "bool", "string", "auto"] && "=" `elem` words
-       [] -> False
-
--- Simple heuristic for function declarations
-isFunctionPattern :: Text -> Bool
-isFunctionPattern line =
-  "(" `T.isInfixOf` line &&
-  ")" `T.isInfixOf` line &&
-  "{" `T.isInfixOf` line
-
--- Position transformation utilities
-transformUsingIndices :: Vector Int -> Position -> Maybe Position
-transformUsingIndices indices (Position l c) =
-  let -- Build a map from original line index to output position
-      siftedMap = Map.fromList [(idx, pos) | (pos, idx) <- zip [0..] (V.toList indices)]
-      siftedSet = Set.fromList (V.toList indices)
-      origLine = fromIntegral l
-  in case Map.lookup origLine siftedMap of
+transformUsingIndices :: DeclarationSifter -> Position -> Maybe Position
+transformUsingIndices sifter (Position l c) =
+  let origLine = fromIntegral l
+  in case Map.lookup origLine (siftedMap sifter) of
        Just outputPos -> Just (Position (fromIntegral outputPos) c)
        Nothing ->
-         -- Line is not sifted, count non-sifted lines before it
-         let nonSiftedBefore = length [i | i <- [0..origLine-1], i `Set.notMember` siftedSet]
-         in Just (Position (fromIntegral (V.length indices + nonSiftedBefore)) c)
+         -- Line is not sifted, use binary search to count sifted lines before it
+         let siftedBefore = binarySearchCountLessThan (siftedIndicesSorted sifter) origLine
+             nonSiftedBefore = origLine - siftedBefore
+         in Just (Position (fromIntegral (V.length (siftedIndices sifter) + nonSiftedBefore)) c)
 
-untransformUsingIndices :: Vector Int -> Position -> Position
-untransformUsingIndices indices (Position l c)
-  | l < fromIntegral len = Position (fromIntegral (indices V.! fromIntegral l)) c
-  | otherwise = Position (fromIntegral $ findNthNonSifted remainingIdx 0 0) c
+untransformUsingIndices :: DeclarationSifter -> Position -> Maybe Position
+untransformUsingIndices sifter (Position l c)
+  -- Empty sifter = identity transformation (no change)
+  | V.null (siftedIndices sifter) && V.null (nonSiftedIndices sifter) = Just (Position l c)
+  | l < fromIntegral numSifted = Just $ Position (fromIntegral (siftedIndices sifter V.! fromIntegral l)) c
+  | remainingIdx < V.length (nonSiftedIndices sifter) = Just $ Position (fromIntegral (nonSiftedIndices sifter V.! remainingIdx)) c
+  | otherwise = Nothing  -- Synthetic wrapper line (empty line, header, closing brace)
   where
-    len = V.length indices
-    remainingIdx = fromIntegral l - len
-    siftedSet = Set.fromList (V.toList indices)
-    findNthNonSifted target count lineNum
-      | lineNum `Set.member` siftedSet = findNthNonSifted target count (lineNum + 1)
-      | count == target = lineNum
-      | otherwise = findNthNonSifted target (count + 1) (lineNum + 1)
+    numSifted = V.length (siftedIndices sifter)
+    remainingIdx = fromIntegral l - numSifted
 
--- Wrap executable lines in a function
+binarySearchCountLessThan :: Vector Int -> Int -> Int
+binarySearchCountLessThan vec target = go 0 (V.length vec)
+  where
+    go lb ub
+      | lb == ub = lb
+      | otherwise =
+          let mid = (lb + ub) `div` 2
+              midVal = vec V.! mid
+          in if midVal < target
+             then go (mid + 1) ub
+             else go lb mid
+
 wrapInFunction :: Text -> [Text] -> [Text]
 wrapInFunction functionName executableLines =
   let functionStart = "void " <> functionName <> "() {"
