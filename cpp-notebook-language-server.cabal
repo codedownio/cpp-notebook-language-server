@@ -16,7 +16,6 @@ library
       Language.LSP.Notebook
       Language.LSP.Notebook.CppParser
       Language.LSP.Notebook.DeclarationSifter
-      Language.LSP.Notebook.ImportSifter
       Language.LSP.Test
       Language.LSP.Transformer
       Language.LSP.TransformTest
