@@ -41,9 +41,6 @@ spec = describe "Example3" $ do
     (outputDoc, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
     T.intercalate "\n" (docToList outputDoc) `shouldBe` expectedFinalOutput
 
-  it "builds correct permutation" $ do
-    let inputDoc = listToDoc (T.splitOn "\n" testCode)
-    (_, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
     -- forward[origLine] = outputLine
     forward sifter `shouldBe` V.fromList [0, 1, 6, 4, 2, 3, 7]
     -- inverse[outputLine] = origLine (-1 for synthetic header/closing)
