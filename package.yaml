@@ -112,3 +112,4 @@ tests:
     - text-rope
     - unliftio
     - unliftio-core
+    - vector

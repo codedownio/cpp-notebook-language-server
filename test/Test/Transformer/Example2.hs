@@ -17,7 +17,6 @@ testCode = [__i|\#include <cmath>
 
 expectedFinalOutput :: T.Text
 expectedFinalOutput = [__i|\#include <cmath>
-
                            void __notebook_exec() {
                              double result = sqrt(16.0)
                            }
@@ -36,21 +35,15 @@ spec = describe "Example2" $ do
       (_, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
       let params = DeclarationSifterParams "cling-parser" "__notebook_exec"
 
+      -- sqrt is at position (1, 16) in input, should be at (2, 18) in output
+      -- Line 1 -> line 2 (after header), column 16 + 2 = 18
       Just pos <- return $ transformPosition params sifter (Position 1 16)
-      pos `shouldBe` (Position 3 18)
+      pos `shouldBe` (Position 2 18)
 
     it "untransforms sqrt" $ do
       let inputDoc = listToDoc (T.splitOn "\n" testCode)
       (_, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
       let params = DeclarationSifterParams "cling-parser" "__notebook_exec"
 
-      Just pos <- return $ untransformPosition params sifter (Position 3 18)
+      Just pos <- return $ untransformPosition params sifter (Position 2 18)
       pos `shouldBe` Position 1 16
-
-    -- it "clamps column to 0 when untransforming from indentation area" $ do
-    --   let inputDoc = listToDoc (T.splitOn "\n" testCode)
-    --   (_, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
-    --   let params = DeclarationSifterParams "cling-parser" "__notebook_exec"
-
-    --   Just pos <- return $ untransformPosition params sifter (Position 2 1)
-    --   pos `shouldBe` Position 1 0

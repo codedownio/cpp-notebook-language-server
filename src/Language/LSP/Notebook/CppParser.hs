@@ -49,10 +49,10 @@ parseCppDeclarations :: Text -> Either String [CppDeclaration]
 parseCppDeclarations jsonText = eitherDecode (BL.fromStrict $ T.encodeUtf8 jsonText)
 
 isImportLike :: CppDeclaration -> Bool
-isImportLike CppDeclaration{declType = UsingDirective} = True
-isImportLike CppDeclaration{declType = Include} = True
+isImportLike (CppDeclaration {declType = UsingDirective}) = True
+isImportLike (CppDeclaration {declType = Include}) = True
 isImportLike _ = False
 
 isExecutableStatement :: CppDeclaration -> Bool
-isExecutableStatement CppDeclaration{declType = TopLevelStmt} = True
+isExecutableStatement (CppDeclaration {declType = TopLevelStmt}) = True
 isExecutableStatement _ = False

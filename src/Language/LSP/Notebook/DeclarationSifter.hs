@@ -2,14 +2,11 @@
 {-# LANGUAGE TypeFamilies #-}
 
 module Language.LSP.Notebook.DeclarationSifter (
-  DeclarationSifter
+  DeclarationSifter(..)
   , DeclarationSifterParams(..)
   ) where
 
 import Control.Monad.IO.Class
-import Data.List (sort)
-import Data.Map.Strict (Map)
-import qualified Data.Map.Strict as Map
 import qualified Data.Set as Set
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -22,19 +19,18 @@ import System.Exit (ExitCode(..))
 import UnliftIO.Process
 
 
+-- | The transformation is essentially a permutation of lines.
+-- We store both directions for O(1) transform and untransform.
 data DeclarationSifter = DeclarationSifter {
-  siftedIndices :: Vector Int         -- Original line indices in OUTPUT order (for untransform)
-  , siftedIndicesSorted :: Vector Int -- Sorted for binary search (for transform count-less-than)
-  , siftedMap :: Map Int Int          -- orig line → output position (for transform of sifted lines)
-  , nonSiftedIndices :: Vector Int    -- Non-sifted original line indices in order (for untransform)
-  , hasExecutableWrapper :: Bool
-  , wrapperStartLine :: Int
-  , wrapperEndLine :: Int
+  forward :: Vector Int           -- forward[origLine] = outputLine
+  , inverse :: Vector Int         -- inverse[outputLine] = origLine (-1 for synthetic)
+  , wrapperBodyStart :: Int       -- first output line of wrapper body (0 if no wrapper)
+  , wrapperBodyEnd :: Int         -- last output line of wrapper body (0 if no wrapper)
   } deriving Show
 
 data DeclarationSifterParams = DeclarationSifterParams {
   parserCommand :: FilePath
-  , execFunctionName :: Text  -- Name of the wrapper function (e.g. "__notebook_exec")
+  , execFunctionName :: Text
   } deriving Show
 
 instance Transformer DeclarationSifter where
@@ -46,49 +42,105 @@ instance Transformer DeclarationSifter where
   project params doc = do
     result <- parseCppCode params doc
     let originalLines = docToList doc
+        numOrigLines = length originalLines
     case result of
-      Left _err -> return (doc, mkEmptySifter) -- fallback to no transformation
+      Left _err -> return (doc, mkIdentitySifter numOrigLines)
       Right declarations -> do
-        let (siftedLineTexts, remainingLineTexts, siftedIdxs, nonSiftedIdxs) = siftDeclarations originalLines declarations
+        let (siftedIdxs, nonSiftedIdxs) = partitionIndices originalLines declarations
+            siftedLines = map (originalLines !!) siftedIdxs
+            nonSiftedLines = map (originalLines !!) nonSiftedIdxs
 
-        -- Always wrap remaining executable lines (if any exist)
-        if not (null remainingLineTexts) && any (not . T.null . T.strip) remainingLineTexts
+        if not (null nonSiftedLines) && any (not . T.null . T.strip) nonSiftedLines
           then do
-            let wrappedLines = wrapInFunction (execFunctionName params) remainingLineTexts
-                allLines = siftedLineTexts ++ wrappedLines
-                wrapperStart = length siftedLineTexts
-                wrapperEnd = length allLines - 1
-            return (listToDoc allLines, mkSifter siftedIdxs nonSiftedIdxs True wrapperStart wrapperEnd)
-          else
-            return (listToDoc (siftedLineTexts ++ remainingLineTexts), mkSifter siftedIdxs nonSiftedIdxs False 0 0)
+            -- Wrap executable lines in a function
+            let wrappedLines = wrapInFunction (execFunctionName params) nonSiftedLines
+                allLines = siftedLines ++ wrappedLines
+                numSifted = length siftedIdxs
+                -- Wrapper structure: header, body lines, closing brace
+                bodyStart = numSifted + 1  -- after function header
+                bodyEnd = numSifted + length nonSiftedLines  -- before closing brace
+                sifter = mkSifter numOrigLines siftedIdxs nonSiftedIdxs (Just (bodyStart, bodyEnd))
+            return (listToDoc allLines, sifter)
+          else do
+            -- No wrapper needed
+            let allLines = siftedLines ++ nonSiftedLines
+                sifter = mkSifter numOrigLines siftedIdxs nonSiftedIdxs Nothing
+            return (listToDoc allLines, sifter)
 
   transformPosition :: Params DeclarationSifter -> DeclarationSifter -> Position -> Maybe Position
-  transformPosition _ sifter pos = do
-    Position l c <- transformUsingIndices sifter pos
-    case hasExecutableWrapper sifter && l >= fromIntegral (wrapperStartLine sifter) of
-      True -> Just $ Position (l + 2) (c + 2)  -- Account for wrapper (empty line + function header) AND indentation
-      False -> Just $ Position l c
+  transformPosition _ sifter (Position l c)
+    | origLine < 0 || origLine >= V.length (forward sifter) = Nothing
+    | otherwise =
+        let outputLine = forward sifter V.! origLine
+            c' = if inWrapperBody sifter outputLine then c + 2 else c
+        in Just (Position (fromIntegral outputLine) c')
+    where
+      origLine = fromIntegral l
 
   untransformPosition :: Params DeclarationSifter -> DeclarationSifter -> Position -> Maybe Position
-  untransformPosition _ sifter (Position l c) =
-    let unwrappedPos = if hasExecutableWrapper sifter && l > fromIntegral (wrapperStartLine sifter) && l <= fromIntegral (wrapperEndLine sifter)
-                       then Position (l - 2) (if c >= 2 then c - 2 else 0)
-                       else Position l c
-    in untransformUsingIndices sifter unwrappedPos
+  untransformPosition _ sifter (Position l c)
+    | outputLine < 0 || outputLine >= V.length (inverse sifter) = Nothing
+    | origLine < 0 = Nothing  -- synthetic line
+    | otherwise =
+        let c' = if inWrapperBody sifter outputLine
+                 then if c >= 2 then c - 2 else 0
+                 else c
+        in Just (Position (fromIntegral origLine) c')
+    where
+      outputLine = fromIntegral l
+      origLine = inverse sifter V.! outputLine
 
-mkSifter :: [Int] -> [Int] -> Bool -> Int -> Int -> DeclarationSifter
-mkSifter siftedIdxs nonSiftedIdxs hasWrapper wStart wEnd = DeclarationSifter {
-  siftedIndices = V.fromList siftedIdxs
-  , siftedIndicesSorted = V.fromList (sort siftedIdxs)
-  , siftedMap = Map.fromList [(idx, pos) | (pos, idx) <- zip [0..] siftedIdxs]
-  , nonSiftedIndices = V.fromList nonSiftedIdxs
-  , hasExecutableWrapper = hasWrapper
-  , wrapperStartLine = wStart
-  , wrapperEndLine = wEnd
+-- | Check if an output line is in the wrapper body (needs column adjustment)
+inWrapperBody :: DeclarationSifter -> Int -> Bool
+inWrapperBody sifter outputLine =
+  wrapperBodyStart sifter > 0 &&
+  outputLine >= wrapperBodyStart sifter &&
+  outputLine <= wrapperBodyEnd sifter
+
+-- | Create identity sifter (no transformation)
+mkIdentitySifter :: Int -> DeclarationSifter
+mkIdentitySifter n = DeclarationSifter
+  { forward = V.fromList [0..n-1]
+  , inverse = V.fromList [0..n-1]
+  , wrapperBodyStart = 0
+  , wrapperBodyEnd = 0
   }
 
-mkEmptySifter :: DeclarationSifter
-mkEmptySifter = DeclarationSifter V.empty V.empty Map.empty V.empty False 0 0
+-- | Build the permutation vectors from sifted and non-sifted indices
+mkSifter :: Int -> [Int] -> [Int] -> Maybe (Int, Int) -> DeclarationSifter
+mkSifter numOrigLines siftedIdxs nonSiftedIdxs mWrapperBody =
+  DeclarationSifter
+    { forward = V.fromList fwdList
+    , inverse = V.fromList invList
+    , wrapperBodyStart = maybe 0 fst mWrapperBody
+    , wrapperBodyEnd = maybe 0 snd mWrapperBody
+    }
+  where
+    numSifted = length siftedIdxs
+    hasWrapper = maybe False (const True) mWrapperBody
+
+    -- Build forward: origLine -> outputLine
+    fwdList = map toOutput [0..numOrigLines-1]
+    toOutput origLine =
+      case lookup origLine siftedWithOutputPos of
+        Just outPos -> outPos
+        Nothing -> case lookup origLine nonSiftedWithOutputPos of
+          Just outPos -> outPos
+          Nothing -> -1  -- shouldn't happen
+
+    siftedWithOutputPos = zip siftedIdxs [0..]  -- (origLine, outputPos)
+    nonSiftedWithOutputPos =
+      if hasWrapper
+      then zip nonSiftedIdxs [numSifted + 1..]  -- skip header line
+      else zip nonSiftedIdxs [numSifted..]
+
+    -- Build inverse: outputLine -> origLine (-1 for synthetic)
+    invList = siftedOrig ++ wrapperInv ++ nonSiftedOrig ++ closingInv
+    siftedOrig = siftedIdxs
+    (wrapperInv, nonSiftedOrig, closingInv) =
+      if hasWrapper
+      then ([-1], nonSiftedIdxs, [-1])  -- header, body, closing brace
+      else ([], nonSiftedIdxs, [])
 
 parseCppCode :: MonadIO m => DeclarationSifterParams -> Doc -> m (Either String [CppDeclaration])
 parseCppCode (DeclarationSifterParams {parserCommand}) doc = do
@@ -101,10 +153,10 @@ parseCppCode (DeclarationSifterParams {parserCommand}) doc = do
     docToText :: Doc -> Text
     docToText = T.intercalate "\n" . docToList
 
--- Sift declarations to the top in the right order
--- Returns: (siftedLines, remainingLines, siftedIndices, nonSiftedIndices)
-siftDeclarations :: [Text] -> [CppDeclaration] -> ([Text], [Text], [Int], [Int])
-siftDeclarations originalLines declarations = (siftedLines, remainingLines, allSiftedIndices, nonSiftedIndices)
+-- | Partition line indices into sifted (declarations) and non-sifted (executable)
+-- Returns (siftedIndices, nonSiftedIndices) where siftedIndices are in output order
+partitionIndices :: [Text] -> [CppDeclaration] -> ([Int], [Int])
+partitionIndices originalLines declarations = (allSiftedIndices, nonSiftedIndices)
   where
     declRanges = [(declType decl, getLineRange decl) | decl <- declarations, isValidRange decl]
 
@@ -115,26 +167,12 @@ siftDeclarations originalLines declarations = (siftedLines, remainingLines, allS
     functionRanges = [range | (Function, range) <- declRanges]
     varRanges = [range | (Var, range) <- declRanges]
 
-    -- Get all sifted line indices (0-based) - in OUTPUT order (not sorted!)
-    -- This order must match siftedLines for position transformation to work
+    -- Sifted indices in OUTPUT order (includes, using, classes, functions, vars)
     allSiftedIndices = concatMap rangeToIndices (includeRanges ++ usingRanges ++ classRanges ++ functionRanges ++ varRanges)
     siftedSet = Set.fromList allSiftedIndices
 
-    -- Extract lines by declaration type groups (maintain proper order)
-    indexedLines = zip [0..] originalLines
-
-    -- Extract lines for each group separately to maintain order
-    includeLines = concatMap (extractLinesForRange indexedLines) includeRanges
-    usingLines = concatMap (extractLinesForRange indexedLines) usingRanges
-    classLines = concatMap (extractLinesForRange indexedLines) classRanges
-    functionLines = concatMap (extractLinesForRange indexedLines) functionRanges
-    varLines = concatMap (extractLinesForRange indexedLines) varRanges
-
-    siftedLines = includeLines ++ usingLines ++ classLines ++ functionLines ++ varLines
-    -- Non-sifted lines and their indices (in original order)
-    nonSiftedWithIdx = [(idx, line) | (idx, line) <- indexedLines, idx `Set.notMember` siftedSet]
-    remainingLines = map snd nonSiftedWithIdx
-    nonSiftedIndices = map fst nonSiftedWithIdx
+    -- Non-sifted indices in original order
+    nonSiftedIndices = [i | i <- [0..length originalLines - 1], i `Set.notMember` siftedSet]
 
     getLineRange :: CppDeclaration -> (Int, Int)
     getLineRange (CppDeclaration {startLine = Just start, endLine = Just end}) = (start, end)
@@ -143,58 +181,20 @@ siftDeclarations originalLines declarations = (siftedLines, remainingLines, allS
 
     isValidRange :: CppDeclaration -> Bool
     isValidRange (CppDeclaration {startLine = Just _, endLine = Just _}) = True
-    isValidRange (CppDeclaration {startLine = Just _, endLine = Nothing}) = True  -- Single line
+    isValidRange (CppDeclaration {startLine = Just _, endLine = Nothing}) = True
     isValidRange _ = False
 
     rangeToIndices :: (Int, Int) -> [Int]
-    rangeToIndices (start, end) = [start - 1 .. end - 1]  -- Convert to 0-based indexing
+    rangeToIndices (start, end) = [start - 1 .. end - 1]  -- Convert to 0-based
 
-    extractLinesForRange :: [(Int, Text)] -> (Int, Int) -> [Text]
-    extractLinesForRange indexedLines (start, end) =
-      let targetIndices = [start - 1 .. end - 1]  -- Convert to 0-based
-      in [line | (idx, line) <- indexedLines, idx `elem` targetIndices]
-
-transformUsingIndices :: DeclarationSifter -> Position -> Maybe Position
-transformUsingIndices sifter (Position l c) =
-  let origLine = fromIntegral l
-  in case Map.lookup origLine (siftedMap sifter) of
-       Just outputPos -> Just (Position (fromIntegral outputPos) c)
-       Nothing ->
-         -- Line is not sifted, use binary search to count sifted lines before it
-         let siftedBefore = binarySearchCountLessThan (siftedIndicesSorted sifter) origLine
-             nonSiftedBefore = origLine - siftedBefore
-         in Just (Position (fromIntegral (V.length (siftedIndices sifter) + nonSiftedBefore)) c)
-
-untransformUsingIndices :: DeclarationSifter -> Position -> Maybe Position
-untransformUsingIndices sifter (Position l c)
-  -- Empty sifter = identity transformation (no change)
-  | V.null (siftedIndices sifter) && V.null (nonSiftedIndices sifter) = Just (Position l c)
-  | l < fromIntegral numSifted = Just $ Position (fromIntegral (siftedIndices sifter V.! fromIntegral l)) c
-  | remainingIdx < V.length (nonSiftedIndices sifter) = Just $ Position (fromIntegral (nonSiftedIndices sifter V.! remainingIdx)) c
-  | otherwise = Nothing  -- Synthetic wrapper line (empty line, header, closing brace)
-  where
-    numSifted = V.length (siftedIndices sifter)
-    remainingIdx = fromIntegral l - numSifted
-
-binarySearchCountLessThan :: Vector Int -> Int -> Int
-binarySearchCountLessThan vec target = go 0 (V.length vec)
-  where
-    go lb ub
-      | lb == ub = lb
-      | otherwise =
-          let mid = (lb + ub) `div` 2
-              midVal = vec V.! mid
-          in if midVal < target
-             then go (mid + 1) ub
-             else go lb mid
-
+-- | Wrap executable lines in a function (no empty line prefix)
 wrapInFunction :: Text -> [Text] -> [Text]
 wrapInFunction functionName executableLines =
-  let functionStart = "void " <> functionName <> "() {"
-      functionEnd = "}"
-      -- Filter out empty lines at the beginning and end
-      trimmedLines = dropWhile (T.null . T.strip) $ reverse $ dropWhile (T.null . T.strip) $ reverse executableLines
-      indentedBody = map (\l -> if T.null l then l else "  " <> l) trimmedLines
-  in if null trimmedLines
-     then []  -- No executable lines to wrap
-     else [""] ++ [functionStart] ++ indentedBody ++ [functionEnd]
+  if null trimmedLines
+  then []
+  else [functionStart] ++ indentedBody ++ [functionEnd]
+  where
+    functionStart = "void " <> functionName <> "() {"
+    functionEnd = "}"
+    trimmedLines = dropWhile (T.null . T.strip) $ reverse $ dropWhile (T.null . T.strip) $ reverse executableLines
+    indentedBody = map (\l -> if T.null l then l else "  " <> l) trimmedLines
