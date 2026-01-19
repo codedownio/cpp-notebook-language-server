@@ -38,13 +38,13 @@ instance Transformer DeclarationSifter where
 
   getParams _ = DeclarationSifterParams "cling-parser" "__notebook_exec"
 
-  project :: MonadIO m => Params DeclarationSifter -> Doc -> m (Doc, DeclarationSifter)
+  project :: MonadIO m => Params DeclarationSifter -> Doc -> m (Doc, DeclarationSifter, Either Text ())
   project params doc = do
     result <- parseCppCode params doc
     let originalLines = docToList doc
         numOrigLines = length originalLines
     case result of
-      Left _err -> return (doc, mkIdentitySifter numOrigLines)
+      Left err -> return (doc, mkIdentitySifter numOrigLines, Left (T.pack err))
       Right declarations -> do
         let (siftedIdxs, nonSiftedIdxs) = partitionIndices originalLines declarations
             siftedLines = map (originalLines !!) siftedIdxs
@@ -60,12 +60,12 @@ instance Transformer DeclarationSifter where
                 bodyStart = numSifted + 1  -- after function header
                 bodyEnd = numSifted + length nonSiftedLines  -- before closing brace
                 sifter = mkSifter numOrigLines siftedIdxs nonSiftedIdxs (Just (bodyStart, bodyEnd))
-            return (listToDoc allLines, sifter)
+            return (listToDoc allLines, sifter, Right ())
           else do
             -- No wrapper needed
             let allLines = siftedLines ++ nonSiftedLines
                 sifter = mkSifter numOrigLines siftedIdxs nonSiftedIdxs Nothing
-            return (listToDoc allLines, sifter)
+            return (listToDoc allLines, sifter, Right ())
 
   transformPosition :: Params DeclarationSifter -> DeclarationSifter -> Position -> Maybe Position
   transformPosition _ sifter (Position l c)

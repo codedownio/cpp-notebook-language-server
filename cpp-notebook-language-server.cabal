@@ -18,7 +18,6 @@ library
       Language.LSP.Notebook.DeclarationSifter
       Language.LSP.Test
       Language.LSP.Transformer
-      Language.LSP.TransformTest
       Transform.ClientNot
       Transform.ClientNot.DidSave
       Transform.ClientReq

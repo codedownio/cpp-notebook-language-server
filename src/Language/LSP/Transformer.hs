@@ -23,6 +23,7 @@ import Control.Monad (foldM)
 import Control.Monad.IO.Class (MonadIO)
 import Data.Diff.Myers
 import qualified Data.Diff.Types as DT
+import Data.Either
 import Data.Kind
 import qualified Data.List as L
 import Data.Text (Text)
@@ -40,7 +41,7 @@ class Transformer a where
 
   getParams :: a -> Params a
 
-  project :: MonadIO m => Params a -> Doc -> m (Doc, a)
+  project :: MonadIO m => Params a -> Doc -> m (Doc, a, Either Text ())
 
   handleDiffMulti :: MonadIO m => Params a -> Doc -> [TextDocumentContentChangeEvent] -> a -> m ([TextDocumentContentChangeEvent], a)
   handleDiffMulti params before changes tx = do
@@ -68,12 +69,15 @@ instance (Transformer a, Transformer b) => Transformer (a :> b) where
   type Params (a :> b) = Params a :> Params b
   getParams (x :> y) = getParams x :> getParams y
   project (xParams :> yParams) lines = do
-    (lines', x) <- project xParams lines
-    (lines'', y) <- project yParams lines'
-    return (lines'', x :> y)
+    (lines', x, eitherErr1) <- project xParams lines
+    (lines'', y, eitherErr2) <- project yParams lines'
+    let overallErr = case lefts [eitherErr1, eitherErr2] of
+          [] -> Right ()
+          xs -> Left (T.intercalate "; " xs)
+    return (lines'', x :> y, overallErr)
   handleDiff (xParams :> yParams) before change (x :> y) = do
     (change', x') <- handleDiff xParams before change x
-    (beforeTransformed, _) <- project @a xParams before
+    (beforeTransformed, _, _eitherErr1) <- project @a xParams before
     (change'', y') <- handleDiffMulti yParams beforeTransformed change' y
     return (change'', x' :> y')
   transformPosition (xParams :> yParams) (x :> y) p = transformPosition xParams x p >>= transformPosition yParams y
@@ -82,9 +86,9 @@ instance (Transformer a, Transformer b) => Transformer (a :> b) where
 -- Default implementation uses diff.
 defaultHandleDiff :: forall a m. (Transformer a, MonadIO m) => Params a -> Doc -> TextDocumentContentChangeEvent -> a -> m ([TextDocumentContentChangeEvent], a)
 defaultHandleDiff params before change _transformer = do
-  (before', _ :: a) <- project params before
+  (before', _ :: a, _eitherErrBefore) <- project params before
   let after = applyChanges [change] before
-  (after', transformer' :: a) <- project params after
+  (after', transformer' :: a, _eitherErrAfter) <- project params after
   let change' = fmap repackChangeEvent $ diffTextsToChangeEventsConsolidate (Rope.toText before') (Rope.toText after')
   return (change', transformer')
   where

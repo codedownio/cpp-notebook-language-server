@@ -58,13 +58,13 @@ spec :: TopSpec
 spec = describe "Example1" $ do
   it "produces expected output" $ do
     let inputDoc = listToDoc (T.splitOn "\n" testCode)
-    (outputDoc, _ :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
+    (outputDoc, _ :: DeclarationSifter, _) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
     T.intercalate "\n" (docToList outputDoc) `shouldBe` expectedFinalOutput
 
   describe "position transformations" $ do
     it "transforms (7, 5) to (14, 7)" $ do
       let inputDoc = listToDoc (T.splitOn "\n" testCode)
-      (_, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
+      (_, sifter :: DeclarationSifter, _) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
       let params = DeclarationSifterParams "cling-parser" "__notebook_exec"
 
       -- Line 7 (cout "Hello...") goes to wrapper body
@@ -74,7 +74,7 @@ spec = describe "Example1" $ do
 
     it "untransforms (14, 7) to (7, 5)" $ do
       let inputDoc = listToDoc (T.splitOn "\n" testCode)
-      (_, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
+      (_, sifter :: DeclarationSifter, _) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
       let params = DeclarationSifterParams "cling-parser" "__notebook_exec"
 
       Just pos <- return $ untransformPosition params sifter (Position 14 7)
@@ -82,7 +82,7 @@ spec = describe "Example1" $ do
 
     it "clamps column to 0 when untransforming from indentation area" $ do
       let inputDoc = listToDoc (T.splitOn "\n" testCode)
-      (_, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
+      (_, sifter :: DeclarationSifter, _) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
       let params = DeclarationSifterParams "cling-parser" "__notebook_exec"
 
       Just pos <- return $ untransformPosition params sifter (Position 14 1)

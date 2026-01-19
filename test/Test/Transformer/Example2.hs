@@ -26,13 +26,13 @@ spec :: TopSpec
 spec = describe "Example2" $ do
   it "produces expected output" $ do
     let inputDoc = listToDoc (T.splitOn "\n" testCode)
-    (outputDoc, _ :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
+    (outputDoc, _ :: DeclarationSifter, _) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
     T.intercalate "\n" (docToList outputDoc) `shouldBe` expectedFinalOutput
 
   describe "position transformations" $ do
     it "transforms sqrt" $ do
       let inputDoc = listToDoc (T.splitOn "\n" testCode)
-      (_, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
+      (_, sifter :: DeclarationSifter, _) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
       let params = DeclarationSifterParams "cling-parser" "__notebook_exec"
 
       -- sqrt is at position (1, 16) in input, should be at (2, 18) in output
@@ -42,7 +42,7 @@ spec = describe "Example2" $ do
 
     it "untransforms sqrt" $ do
       let inputDoc = listToDoc (T.splitOn "\n" testCode)
-      (_, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
+      (_, sifter :: DeclarationSifter, _) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
       let params = DeclarationSifterParams "cling-parser" "__notebook_exec"
 
       Just pos <- return $ untransformPosition params sifter (Position 2 18)

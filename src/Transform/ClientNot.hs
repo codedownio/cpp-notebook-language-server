@@ -58,7 +58,12 @@ transformClientNot' sendExtraNotification SMethod_TextDocumentDidOpen params = w
   let t = params ^. (textDocument . text)
   let ls = Rope.fromText t
   let txParams = if isNotebook u then transformerParams else idTransformerParams
-  (ls', transformer' :: CppNotebookTransformer) <- liftIO $ project txParams ls
+  (ls', transformer' :: CppNotebookTransformer, eitherErr) <- liftIO $ project txParams ls
+
+  case eitherErr of
+    Left err -> logWarnN [i|(#{u}) Project failed: #{err}|]
+    Right () -> return ()
+
   TransformerState {..} <- ask
   newUri <- addExtensionToUri ".cpp" u
   let referenceRegex = case uriToFilePath newUri of

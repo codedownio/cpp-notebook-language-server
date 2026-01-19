@@ -21,8 +21,8 @@ testChange' extraProps params docLines change = do
   -- Expected un-projected document after the change
   let docLines' = applyChanges [change] docLines
 
-  (projectedBefore, transformer :: a) <- project params docLines
-  (projectedAfter, reprojectedTransformer :: a) <- project params docLines'
+  (projectedBefore, transformer :: a, _eitherErr) <- project params docLines
+  (projectedAfter, reprojectedTransformer :: a, _eitherErr') <- project params docLines'
 
   (changes, transformer') <- handleDiff params docLines change transformer
   let afterFromChange' = applyChanges changes projectedBefore

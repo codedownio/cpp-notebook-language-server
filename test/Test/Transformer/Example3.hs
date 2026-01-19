@@ -38,7 +38,8 @@ spec :: TopSpec
 spec = describe "Example3" $ do
   it "produces expected output" $ do
     let inputDoc = listToDoc (T.splitOn "\n" testCode)
-    (outputDoc, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
+    (outputDoc, sifter :: DeclarationSifter, eitherErr) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
+    eitherErr `shouldBe` Right ()
     T.intercalate "\n" (docToList outputDoc) `shouldBe` expectedFinalOutput
 
     -- forward[origLine] = outputLine
@@ -52,7 +53,7 @@ spec = describe "Example3" $ do
   describe "position transformations" $ do
     it "transforms #include (sifted, stays at line 0)" $ do
       let inputDoc = listToDoc (T.splitOn "\n" testCode)
-      (_, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
+      (_, sifter :: DeclarationSifter, _) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
       let params = DeclarationSifterParams "cling-parser" "__notebook_exec"
 
       -- #include is at line 0 in input, stays at line 0 in output
@@ -61,7 +62,7 @@ spec = describe "Example3" $ do
 
     it "untransforms #include" $ do
       let inputDoc = listToDoc (T.splitOn "\n" testCode)
-      (_, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
+      (_, sifter :: DeclarationSifter, _) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
       let params = DeclarationSifterParams "cling-parser" "__notebook_exec"
 
       Just pos <- return $ untransformPosition params sifter (Position 0 0)
@@ -69,7 +70,7 @@ spec = describe "Example3" $ do
 
     it "transforms var (sifted but moved)" $ do
       let inputDoc = listToDoc (T.splitOn "\n" testCode)
-      (_, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
+      (_, sifter :: DeclarationSifter, _) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
       let params = DeclarationSifterParams "cling-parser" "__notebook_exec"
 
       -- int x is at line 3 in input, should move to line 4 in output (include, using, class, func, VAR)
@@ -78,7 +79,7 @@ spec = describe "Example3" $ do
 
     it "untransforms var" $ do
       let inputDoc = listToDoc (T.splitOn "\n" testCode)
-      (_, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
+      (_, sifter :: DeclarationSifter, _) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
       let params = DeclarationSifterParams "cling-parser" "__notebook_exec"
 
       Just pos <- return $ untransformPosition params sifter (Position 4 0)
@@ -86,7 +87,7 @@ spec = describe "Example3" $ do
 
     it "transforms cout (executable, wrapped with indent)" $ do
       let inputDoc = listToDoc (T.splitOn "\n" testCode)
-      (_, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
+      (_, sifter :: DeclarationSifter, _) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
       let params = DeclarationSifterParams "cling-parser" "__notebook_exec"
 
       -- First cout is at line 2 col 0 in input
@@ -97,7 +98,7 @@ spec = describe "Example3" $ do
 
     it "untransforms cout" $ do
       let inputDoc = listToDoc (T.splitOn "\n" testCode)
-      (_, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
+      (_, sifter :: DeclarationSifter, _) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
       let params = DeclarationSifterParams "cling-parser" "__notebook_exec"
 
       Just pos <- return $ untransformPosition params sifter (Position 6 2)
@@ -105,7 +106,7 @@ spec = describe "Example3" $ do
 
     it "transforms second cout" $ do
       let inputDoc = listToDoc (T.splitOn "\n" testCode)
-      (_, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
+      (_, sifter :: DeclarationSifter, _) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
       let params = DeclarationSifterParams "cling-parser" "__notebook_exec"
 
       -- Second cout is at line 6 col 0 in input, should be at line 7 col 2 in output
@@ -114,7 +115,7 @@ spec = describe "Example3" $ do
 
     it "untransforms second cout" $ do
       let inputDoc = listToDoc (T.splitOn "\n" testCode)
-      (_, sifter :: DeclarationSifter) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
+      (_, sifter :: DeclarationSifter, _) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
       let params = DeclarationSifterParams "cling-parser" "__notebook_exec"
 
       Just pos <- return $ untransformPosition params sifter (Position 7 2)
