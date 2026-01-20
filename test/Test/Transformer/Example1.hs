@@ -87,3 +87,6 @@ spec = describe "Example1" $ do
 
       Just pos <- return $ untransformPosition params sifter (Position 14 1)
       pos `shouldBe` Position 7 0
+
+main :: IO ()
+main = runSandwichWithCommandLineArgs defaultOptions spec
