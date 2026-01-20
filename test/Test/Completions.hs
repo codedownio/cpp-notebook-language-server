@@ -32,7 +32,7 @@ spec = describe "Completions" $ do
                             return 0;
                         }|]
 
-    doNotebookSession testCode $ \(Helpers.LspSessionInfo {..}) -> do
+    doRawSession testCode $ \(Helpers.LspSessionInfo {..}) -> do
       doc <- LSP.openDoc lspSessionInfoFileName LanguageKind_CPP
 
       -- Get completions after "std::"
@@ -61,18 +61,16 @@ spec = describe "Completions" $ do
       insertTexts `listShouldContain` "vector"
 
   it "provides completions for local variables" $ do
-    let testCode = [__i|int main() {
-                            int myVariable = 42;
-                            double myDouble = 3.14;
-                            my
-                            return 0;
+    let testCode = [__i|int myVariable = 42;
+                        double myDouble = 3.14;
+                        my
                         }|]
 
     doNotebookSession testCode $ \(Helpers.LspSessionInfo {..}) -> do
       doc <- LSP.openDoc lspSessionInfoFileName LanguageKind_CPP
 
       -- Get completions after "my"
-      completions <- LSP.getCompletions doc (Position 3 6)
+      completions <- LSP.getCompletions doc (Position 2 2)
       info [i|Got completions: #{completions}|]
 
       let insertTexts = mapMaybe _insertText completions
