@@ -29,6 +29,7 @@ import Transform.ServerRsp.Hover (mkDocRegex)
 import Transform.Util
 import UnliftIO.Concurrent
 import UnliftIO.Directory
+import UnliftIO.Exception
 
 
 type ClientNotMethod m = SMethod (m :: Method 'ClientToServer 'Notification)
@@ -60,19 +61,18 @@ transformClientNot' sendExtraNotification SMethod_TextDocumentDidOpen params = w
   let txParams = if isNotebook u then transformerParams else idTransformerParams
   (ls', transformer' :: CppNotebookTransformer, eitherErr) <- liftIO $ project txParams ls
 
+  logDebugN [i|(#{u}) Transforming TextDocumentDidOpen. Is notebook? #{isNotebook u}|]
+
   case eitherErr of
     Left err -> logWarnN [i|(#{u}) Project failed: #{err}|]
     Right () -> return ()
 
   TransformerState {..} <- ask
-  newUri <- addExtensionToUri ".cpp" u
-  let referenceRegex = case uriToFilePath newUri of
-        Just s -> mkDocRegex (T.pack s)
-        Nothing -> mkDocRegex (getUri newUri)
+  newUri <- if isNotebook u then addExtensionToUri ".cpp" u else return u
 
-  let newPath = case uriToFilePath newUri of
-        Nothing -> "ERROR_URI_PARSE_FAILURE"
-        Just x -> x
+  newPath <- case uriToFilePath newUri of
+    Nothing -> throwIO $ userError [i|Failed to convert new URI to file path: #{newUri}|]
+    Just x -> pure x
 
   uuid <- liftIO UUID.nextRandom
 
@@ -97,7 +97,9 @@ transformClientNot' sendExtraNotification SMethod_TextDocumentDidOpen params = w
         , origUri = u
         , newUri = newUri
         , newPath = newPath
-        , referenceRegex = referenceRegex
+        , referenceRegex = case uriToFilePath newUri of
+            Just s -> mkDocRegex (T.pack s)
+            Nothing -> mkDocRegex (getUri newUri)
         , documentUuid = uuid
         , debouncedDidChange = debouncedDidChange
         }) x
