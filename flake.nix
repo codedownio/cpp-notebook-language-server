@@ -32,11 +32,11 @@
 
         packageForGitHub = packageForGitHub' system;
 
-        packageForGitHub' = systemToUse: rnls: pkgs.runCommand "cpp-notebook-language-server-${rnls.version}-${systemToUse}" {} ''
-          name="cpp-notebook-language-server-${rnls.version}-${systemToUse}"
+        packageForGitHub' = systemToUse: cnls: pkgs.runCommand "cpp-notebook-language-server-${cnls.version}-${systemToUse}" {} ''
+          name="cpp-notebook-language-server-${cnls.version}-${systemToUse}"
 
           mkdir -p to_zip
-          cp -r ${rnls}/* to_zip
+          cp -r ${cnls}/* to_zip
           mkdir -p $out
           tar -czvf $out/$name.tar.gz -C to_zip .
         '';
@@ -94,6 +94,14 @@
           };
         });
 
+        mkWrapped = cnls: pkgs.runCommand "cpp-notebook-language-server-${cnls.version}-wrapped" {
+          nativeBuildInputs = [ pkgs.makeWrapper ];
+        } ''
+          mkdir -p $out/bin
+          makeWrapper ${cnls}/bin/cpp-notebook-language-server $out/bin/cpp-notebook-language-server \
+            --prefix PATH : ${cling-parser}/bin
+        '';
+
       in
         {
           devShells = {
@@ -116,6 +124,9 @@
             default = static;
 
             inherit cling-parser;
+
+            dynamicWrapped = mkWrapped dynamic;
+            staticWrapped = mkWrapped static;
 
             static = flakeStatic.packages."cpp-notebook-language-server:exe:cpp-notebook-language-server";
             dynamic = flake.packages."cpp-notebook-language-server:exe:cpp-notebook-language-server";

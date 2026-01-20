@@ -176,7 +176,7 @@ cppNotebookLanguageServerDerivation projectRoot = [i|
 
 let
   flake = builtins.getFlake "#{projectRoot}";
-in flake.packages.x86_64-linux.default
+in flake.packages.x86_64-linux.staticWrapped
 |]
 
 
