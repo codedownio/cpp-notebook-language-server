@@ -8,6 +8,7 @@ module Language.LSP.Notebook.DeclarationSifter (
 
 import Control.Monad.IO.Class
 import qualified Data.Set as Set
+import Data.String.Interpolate
 import Data.Text (Text)
 import qualified Data.Text as T
 import Data.Vector (Vector)
@@ -147,8 +148,10 @@ parseCppCode (DeclarationSifterParams {parserCommand}) doc = do
   let input = T.unpack (docToText doc)
   (exitCode, stdout, stderr) <- readCreateProcessWithExitCode (proc parserCommand []) input
   case exitCode of
-    ExitSuccess -> return $ parseCppDeclarations (T.pack stdout)
-    ExitFailure _ -> return $ Left ("cling-parser failed: " ++ stderr)
+    ExitSuccess -> case parseCppDeclarations (T.pack stdout) of
+      Left err -> return $ Left [i|Failed to parse C++: #{err}. Stdout: #{stdout}. Stderr: #{stderr}.|]
+      Right x -> return $ Right x
+    ExitFailure n -> return $ Left ([i|cling-parser failed with code #{n}: |] <> stderr)
   where
     docToText :: Doc -> Text
     docToText = T.intercalate "\n" . docToList
