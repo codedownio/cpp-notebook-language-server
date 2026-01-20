@@ -23,37 +23,35 @@ spec :: (
   , HasFile ctx "clangd"
   ) => SpecFree ctx m ()
 spec = describe "Hover" $ do
-    it "hovers over variable declaration" $ do
-      let testCode = [__i|int x = 42;
-                          float y = 3.14;
-                          |]
+  it "hovers over variable declaration" $ do
+    let testCode = [__i|int x = 42;
+                        float y = 3.14;
+                        |]
 
-      doNotebookSession testCode $ \(Helpers.LspSessionInfo {..}) -> do
-        doc <- LSP.openDoc lspSessionInfoFileName LanguageKind_CPP
+    doNotebookSession testCode $ \(Helpers.LspSessionInfo {..}) -> do
+      doc <- LSP.openDoc lspSessionInfoFileName LanguageKind_CPP
 
-        -- Hover over 'x'
-        LSP.getHover doc (Position 0 4) >>= \case
-          Nothing -> liftIO $ expectationFailure "Expected hover for variable 'x'"
-          Just hover -> do
-            let hoverText = Helpers.allHoverText hover
-            info [i|Got hover text for 'x': #{hoverText}|]
-            liftIO $ hoverText `textShouldContain` "int"
+      -- Hover over 'x'
+      LSP.getHover doc (Position 0 4) >>= \case
+        Nothing -> liftIO $ expectationFailure "Expected hover for variable 'x'"
+        Just hover -> do
+          let hoverText = Helpers.allHoverText hover
+          info [i|Got hover text for 'x': #{hoverText}|]
+          liftIO $ hoverText `textShouldContain` "int"
 
-    it "hovers over function call" $ do
-      let testCode = [__i|\#include <iostream>
-                          int main() {
-                            std::cout << "Hello" << std::endl;
-                            return 0;
-                          }|]
+  it "hovers over function call" $ do
+    let testCode = [__i|\#include <iostream>
+                        std::cout << "Hello" << std::endl;
+                       |]
 
-      doNotebookSession testCode $ \(Helpers.LspSessionInfo {..}) -> do
-        doc <- LSP.openDoc lspSessionInfoFileName LanguageKind_CPP
+    doNotebookSession testCode $ \(Helpers.LspSessionInfo {..}) -> do
+      doc <- LSP.openDoc lspSessionInfoFileName LanguageKind_CPP
 
-        -- Hover over 'cout' at position (2, 8)
-        LSP.getHover doc (Position 2 8) >>= \case
-          Nothing -> info "No hover found for cout (might be expected)"
-          Just hover -> do
-            let hoverText = Helpers.allHoverText hover
-            info [i|Got hover text for 'cout': #{hoverText}|]
-            -- std::cout is an ostream
-            liftIO $ hoverText `textShouldContain` "std"
+      -- Hover over 'cout' at position (2, 8)
+      LSP.getHover doc (Position 1 8) >>= \case
+        Nothing -> expectationFailure "No hover found for cout"
+        Just hover -> do
+          let hoverText = Helpers.allHoverText hover
+          info [i|Got hover text for 'cout': #{hoverText}|]
+          -- std::cout is an ostream
+          liftIO $ hoverText `textShouldContain` "std"

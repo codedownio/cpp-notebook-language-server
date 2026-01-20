@@ -10,6 +10,8 @@
 
 module TestLib.LSP (
   doNotebookSession
+  , doRawSession
+
   , introduceMaybeBubblewrap
   , introduceCnls
   ) where
@@ -45,13 +47,26 @@ doNotebookSession :: (
   , HasFile ctx "cpp-notebook-language-server"
   , HasFile ctx "clangd"
   ) => T.Text -> (Helpers.LspSessionInfo -> LSP.Session (ExampleT ctx m) a) -> ExampleT ctx m a
-doNotebookSession codeToUse cb = do
+doNotebookSession = doSession "main.ipynb"
+
+doRawSession :: (
+  Helpers.LspContext ctx m
+  , HasFile ctx "cpp-notebook-language-server"
+  , HasFile ctx "clangd"
+  ) => T.Text -> (Helpers.LspSessionInfo -> LSP.Session (ExampleT ctx m) a) -> ExampleT ctx m a
+doRawSession = doSession "main.cpp"
+
+doSession :: (
+  Helpers.LspContext ctx m
+  , HasFile ctx "cpp-notebook-language-server"
+  , HasFile ctx "clangd"
+  ) => FilePath -> T.Text -> (Helpers.LspSessionInfo -> LSP.Session (ExampleT ctx m) a) -> ExampleT ctx m a
+doSession fileName codeToUse cb = do
   cppNotebookLSPath <- askFile @"cpp-notebook-language-server"
   clangdPath <- askFile @"clangd"
 
   withSystemTempDirectory "cpp-lsp-test" $ \tmpDir -> do
-    let fileName = "main.cpp"
-    let testFile = tmpDir </> T.unpack fileName
+    let testFile = tmpDir </> fileName
 
     -- Write the notebook code
     liftIO $ TIO.writeFile testFile codeToUse
@@ -70,7 +85,7 @@ doNotebookSession codeToUse cb = do
           lspConfigName = "cpp-notebook-language-server"
           , lspConfigVersion = Nothing
           , lspConfigDescription = Just "C++ notebook language server"
-          , lspConfigDisplayName = Just "C++ Notebook LSP"
+          , lspConfigDisplayName = Just "C++ Notebook Language Server"
           , lspConfigIcon = Nothing
           , lspConfigExtensions = [".cpp", ".hpp", ".cc", ".cxx", ".c++", ".h", ".hxx"]
           , lspConfigAttrs = S.fromList ["cpp"]
@@ -80,10 +95,6 @@ doNotebookSession codeToUse cb = do
               T.pack cppNotebookLSPath
               , "--wrapped-server", T.pack clangdPath
               , "--log-level", "debug"
-              , "--debug-client-writes"
-              , "--debug-client-reads"
-              , "--debug-server-writes"
-              , "--debug-server-reads"
               ]
           , lspConfigLanguageId = Just LanguageKind_CPP
           , lspConfigInitializationOptions = Nothing
@@ -98,7 +109,7 @@ doNotebookSession codeToUse cb = do
     closure <- getCppLspClosure cppNotebookLSPath clangdPath pathToUse
 
     let lspSessionOptions = (Helpers.defaultLspSessionOptions lspConfig) {
-          Helpers.lspSessionOptionsInitialFileName = T.unpack fileName
+          Helpers.lspSessionOptionsInitialFileName = fileName
           , Helpers.lspSessionOptionsInitialLanguageKind = LanguageKind_CPP
           , Helpers.lspSessionOptionsInitialCode = codeToUse
           , Helpers.lspSessionOptionsExtraFiles = []
