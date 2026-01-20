@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
-module Test.Transformer.Example2 where
+module Test.Transformer.Example4 where
 
 import Data.String.Interpolate
 import qualified Data.Text as T
@@ -12,27 +12,30 @@ import TestLib.LSP
 
 
 testCode :: T.Text
-testCode = [__i|\#include <cmath>
-                double result = sqrt(16.0)
+testCode = [__i|int x = 42;
+                float y = 3.14;
                |]
 
 expectedFinalOutput :: T.Text
-expectedFinalOutput = [__i|\#include <cmath>
-                           void __notebook_exec() {
-                             double result = sqrt(16.0)
+expectedFinalOutput = [__i|void __notebook_exec() {
+                             int x = 42;
+                             float y = 3.14;
                            }
                           |]
 
 spec :: TopSpec
-spec = describe "Example2" $ do
+spec = describe "Example4" $ do
   it "produces expected output" $ do
     let inputDoc = listToDoc (T.splitOn "\n" testCode)
     (outputDoc, _ :: DeclarationSifter, _) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
     T.intercalate "\n" (docToList outputDoc) `shouldBe` expectedFinalOutput
 
   describe "position transformations" $ do
-    it "transforms sqrt" $ do
-      transformRoundTripCode testCode (Position 1 16) (Position 2 18)
+    it "transforms x position" $ do
+      transformRoundTripCode testCode (Position 0 4) (Position 1 6)
+
+    it "transforms y position" $ do
+      transformRoundTripCode testCode (Position 1 6) (Position 2 8)
 
 main :: IO ()
 main = runSandwichWithCommandLineArgs defaultOptions spec

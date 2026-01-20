@@ -10,6 +10,7 @@ import qualified Test.DocumentReferences
 import qualified Test.Transformer.Example1
 import qualified Test.Transformer.Example2
 import qualified Test.Transformer.Example3
+import qualified Test.Transformer.Example4
 
 import qualified Test.Hover
 import qualified Test.Completions
@@ -23,6 +24,7 @@ spec = do
   Test.Transformer.Example1.spec
   Test.Transformer.Example2.spec
   Test.Transformer.Example3.spec
+  Test.Transformer.Example4.spec
 
   describe "Integration tests" $
     introduceMaybeBubblewrap $

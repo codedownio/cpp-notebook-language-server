@@ -43,7 +43,7 @@ instance Transformer DeclarationSifter where
   project params doc = do
     result <- parseCppCode params doc
     let originalLines = docToList doc
-        numOrigLines = length originalLines
+    let numOrigLines = length originalLines
     case result of
       Left err -> return (doc, mkIdentitySifter numOrigLines, Left (T.pack err))
       Right declarations -> do
@@ -168,10 +168,9 @@ partitionIndices originalLines declarations = (allSiftedIndices, nonSiftedIndice
     usingRanges = [range | (UsingDirective, range) <- declRanges]
     classRanges = [range | (CXXRecord, range) <- declRanges]
     functionRanges = [range | (Function, range) <- declRanges]
-    varRanges = [range | (Var, range) <- declRanges]
 
     -- Sifted indices in OUTPUT order (includes, using, classes, functions, vars)
-    allSiftedIndices = concatMap rangeToIndices (includeRanges ++ usingRanges ++ classRanges ++ functionRanges ++ varRanges)
+    allSiftedIndices = concatMap rangeToIndices (includeRanges ++ usingRanges ++ classRanges ++ functionRanges)
     siftedSet = Set.fromList allSiftedIndices
 
     -- Non-sifted indices in original order
@@ -190,14 +189,11 @@ partitionIndices originalLines declarations = (allSiftedIndices, nonSiftedIndice
     rangeToIndices :: (Int, Int) -> [Int]
     rangeToIndices (start, end) = [start - 1 .. end - 1]  -- Convert to 0-based
 
--- | Wrap executable lines in a function (no empty line prefix)
+-- | Wrap executable lines in a function
 wrapInFunction :: Text -> [Text] -> [Text]
 wrapInFunction functionName executableLines =
-  if null trimmedLines
-  then []
-  else [functionStart] ++ indentedBody ++ [functionEnd]
+  [functionStart] ++ indentedBody ++ [functionEnd]
   where
     functionStart = "void " <> functionName <> "() {"
     functionEnd = "}"
-    trimmedLines = dropWhile (T.null . T.strip) $ reverse $ dropWhile (T.null . T.strip) $ reverse executableLines
-    indentedBody = map (\l -> if T.null l then l else "  " <> l) trimmedLines
+    indentedBody = map (\l -> if T.null l then l else "  " <> l) executableLines

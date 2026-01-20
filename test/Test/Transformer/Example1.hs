@@ -8,6 +8,7 @@ import Language.LSP.Notebook.DeclarationSifter
 import Language.LSP.Protocol.Types (Position(..))
 import Language.LSP.Transformer
 import Test.Sandwich
+import TestLib.LSP
 
 
 testCode :: T.Text
@@ -42,13 +43,14 @@ expectedFinalOutput = [__i|
       int value;
       void print() { cout << "Class method" << endl; }
   };
-  int x = 42;
   void __notebook_exec() {
+
     // This is a comment
 
 
     cout << "Hello from the top!" << endl;
 
+    int x = 42;
 
 
     cout << "After class definition" << endl;
@@ -62,30 +64,16 @@ spec = describe "Example1" $ do
     T.intercalate "\n" (docToList outputDoc) `shouldBe` expectedFinalOutput
 
   describe "position transformations" $ do
-    it "transforms (7, 5) to (14, 7)" $ do
-      let inputDoc = listToDoc (T.splitOn "\n" testCode)
-      (_, sifter :: DeclarationSifter, _) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
-      let params = DeclarationSifterParams "cling-parser" "__notebook_exec"
-
-      -- Line 7 (cout "Hello...") goes to wrapper body
-      -- With no empty line before wrapper, position shifts down by 1 from old test
-      Just pos <- return $ transformPosition params sifter (Position 7 5)
-      pos `shouldBe` Position 14 7
-
-    it "untransforms (14, 7) to (7, 5)" $ do
-      let inputDoc = listToDoc (T.splitOn "\n" testCode)
-      (_, sifter :: DeclarationSifter, _) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
-      let params = DeclarationSifterParams "cling-parser" "__notebook_exec"
-
-      Just pos <- return $ untransformPosition params sifter (Position 14 7)
-      pos `shouldBe` Position 7 5
+    it "transforms <<" $ do
+      info [i|expectedFinalOutput: #{show expectedFinalOutput}|]
+      transformRoundTripCode testCode (Position 7 5) (Position 13 7)
 
     it "clamps column to 0 when untransforming from indentation area" $ do
       let inputDoc = listToDoc (T.splitOn "\n" testCode)
       (_, sifter :: DeclarationSifter, _) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
       let params = DeclarationSifterParams "cling-parser" "__notebook_exec"
 
-      Just pos <- return $ untransformPosition params sifter (Position 14 1)
+      Just pos <- return $ untransformPosition params sifter (Position 13 1)
       pos `shouldBe` Position 7 0
 
 main :: IO ()

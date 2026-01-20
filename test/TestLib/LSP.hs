@@ -14,16 +14,23 @@ module TestLib.LSP (
 
   , introduceMaybeBubblewrap
   , introduceCnls
+
+  , transformRoundTrip
+  , transformRoundTripCode
   ) where
 
 import Control.Monad (void)
 import Control.Monad.Catch (MonadMask)
 import Control.Monad.Logger
 import Control.Monad.Reader
+import qualified Data.List as L
 import Data.Function (fix)
 import Data.String.Interpolate
+import Data.Text
 import GHC.Stack
+import Language.LSP.Notebook.DeclarationSifter
 import Language.LSP.Protocol.Types
+import Language.LSP.Transformer hiding ((:>))
 import System.FilePath
 import System.IO
 import System.IO.Temp
@@ -135,7 +142,7 @@ getCppLspClosure cppNotebookLSPath clangdPath pathToUse = do
   closure <- (fmap T.unpack . Prelude.filter (/= "") . T.splitOn "\n" . T.pack) <$> readCreateProcess (
     proc "nix" (["path-info", "-r"] ++ paths)
     ) ""
-  info [i|Got Nix closure with #{length closure} entries|]
+  info [i|Got Nix closure with #{L.length closure} entries|]
   return closure
 
 -- | Introduce maybeBubblewrap context, trying to find bwrap executable
@@ -189,3 +196,19 @@ getProjectRoot = do
       False -> let dir' = takeDirectory dir in
                  if | dir == dir' -> throwIO $ userError [i|Couldn't find project root starting from #{startDir}|]
                     | otherwise -> loop dir'
+
+
+transformRoundTripCode :: (MonadIO m, MonadFail m) => Text -> Position -> Position -> m ()
+transformRoundTripCode testCode from to = do
+  let inputDoc = listToDoc (T.splitOn "\n" testCode)
+  (_, sifter :: DeclarationSifter, _) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
+  let params = DeclarationSifterParams "cling-parser" "__notebook_exec"
+  transformRoundTrip params sifter from to
+
+transformRoundTrip :: (MonadIO m, MonadFail m) => Params DeclarationSifter -> DeclarationSifter -> Position -> Position -> m ()
+transformRoundTrip params sifter from to = do
+  Just pos <- return $ transformPosition params sifter from
+  pos `shouldBe` to
+
+  Just pos' <- return $ untransformPosition params sifter to
+  pos' `shouldBe` from
