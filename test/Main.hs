@@ -12,9 +12,10 @@ import qualified Test.Transformer.Example2
 import qualified Test.Transformer.Example3
 import qualified Test.Transformer.Example4
 
-import qualified Test.Hover
 import qualified Test.Completions
+import qualified Test.Diagnostics
 import qualified Test.DocumentSymbols
+import qualified Test.Hover
 
 
 spec :: TopSpec
@@ -31,9 +32,10 @@ spec = do
     introduceNixContext nixpkgsReleaseDefault $
     introduceBinaryViaNixPackage @"clangd" "clang-tools" $
     introduceCnls $ do
-      Test.Hover.spec
       Test.Completions.spec
+      Test.Diagnostics.spec
       Test.DocumentSymbols.spec
+      Test.Hover.spec
 
 main :: IO ()
 main = runSandwichWithCommandLineArgs defaultOptions spec

@@ -125,6 +125,7 @@ test-suite cpp-notebook-language-server-test
   main-is: Main.hs
   other-modules:
       Test.Completions
+      Test.Diagnostics
       Test.DocumentReferences
       Test.DocumentSymbols
       Test.Hover
