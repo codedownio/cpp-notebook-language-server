@@ -25,16 +25,23 @@ jobs:
         path: ~/.stack
         key: ${{ runner.os }}-stack
 
+    - name: Install direnv
+      run: |
+        curl -sfL https://direnv.net/install.sh | bash
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
+    - name: Allow direnv
+      run: direnv allow
+
     - name: Build
       run: |
-        # stack build --system-ghc --test --bench --no-run-tests --no-run-benchmarks
+        eval "$(direnv export bash)"
         export NIX_PATH="nixpkgs=$(nix run .#nixpkgsPath)"
         echo "NIX_PATH: $NIX_PATH"
         nix run .#stack -- build --nix --test --bench --no-run-tests --no-run-benchmarks
 
     - name: Test
       run: |
-        # stack test --system-ghc --test-arguments --print
+        eval "$(direnv export bash)"
         export NIX_PATH="nixpkgs=$(nix run .#nixpkgsPath)"
         echo "NIX_PATH: $NIX_PATH"
         nix run .#stack -- test --nix --test-arguments --print
