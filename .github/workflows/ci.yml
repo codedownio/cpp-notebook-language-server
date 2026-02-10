@@ -36,6 +36,13 @@ jobs:
       run: |
         nix develop -c stack test --test-arguments --print
 
+    - name: Upload test logs
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-runs
+        path: test_runs/
+
   no-gmp:
     runs-on: [self-hosted, Linux, desktop]
     strategy:
@@ -46,10 +53,10 @@ jobs:
     - uses: cachix/install-nix-action@v31
       with:
         nix_path: nixpkgs=channel:release-25.11
-        extra_nix_config: |
-          trusted-public-keys = iohk.cachix.org-1:DpRUyj7h7V830dp/i6Nti+NEO2/nhblbov/8MW7Rqoo= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
-          substituters = https://iohk.cachix.org https://cache.nixos.org/
-    - uses: DeterminateSystems/magic-nix-cache-action@main
+        # extra_nix_config: |
+        #   trusted-public-keys = iohk.cachix.org-1:DpRUyj7h7V830dp/i6Nti+NEO2/nhblbov/8MW7Rqoo= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
+        #   substituters = https://iohk.cachix.org https://cache.nixos.org/
+    # - uses: DeterminateSystems/magic-nix-cache-action@main
 
     - name: No GMP
       run: |
@@ -67,10 +74,10 @@ jobs:
     - uses: cachix/install-nix-action@v31
       with:
         nix_path: nixpkgs=channel:release-25.11
-        extra_nix_config: |
-          trusted-public-keys = iohk.cachix.org-1:DpRUyj7h7V830dp/i6Nti+NEO2/nhblbov/8MW7Rqoo= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
-          substituters = https://iohk.cachix.org https://cache.nixos.org/
-    - uses: DeterminateSystems/magic-nix-cache-action@main
+        # extra_nix_config: |
+        #   trusted-public-keys = iohk.cachix.org-1:DpRUyj7h7V830dp/i6Nti+NEO2/nhblbov/8MW7Rqoo= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
+        #   substituters = https://iohk.cachix.org https://cache.nixos.org/
+    # - uses: DeterminateSystems/magic-nix-cache-action@main
 
     - name: Build
       run: |
