@@ -37,7 +37,7 @@ jobs:
         nix develop -c stack test --test-arguments --print
 
   no-gmp:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, desktop]
     strategy:
       fail-fast: false
     steps:
@@ -57,7 +57,7 @@ jobs:
 
   nix:
     name: Nix
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, desktop]
     strategy:
       fail-fast: false
 
