@@ -40,6 +40,11 @@ jobs:
         eval "$(direnv export bash)"
         export NIX_PATH="nixpkgs=$(nix run .#nixpkgsPath)"
         echo "NIX_PATH: $NIX_PATH"
+
+        echo AAAAAAAAAAAAAAAAAAAAAAA
+        env
+        echo BBBBBBBBBBBBBBBBBBBBBBB
+
         nix run .#stack -- build --nix --test --bench --no-run-tests --no-run-benchmarks
 
     - name: Test
