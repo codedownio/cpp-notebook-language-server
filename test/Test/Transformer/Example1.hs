@@ -64,7 +64,7 @@ spec = describe "Example1" $ do
     T.intercalate "\n" (docToList outputDoc) `shouldBe` expectedFinalOutput
 
   describe "position transformations" $ do
-    it "transforms <<" $ do
+    it "transforms stream operator" $ do
       info [i|expectedFinalOutput: #{show expectedFinalOutput}|]
       transformRoundTripCode testCode (Position 7 5) (Position 13 7)
 
