@@ -108,6 +108,7 @@
             default = pkgs.mkShell {
               NIX_PATH = "nixpkgs=${pkgs.path}";
               buildInputs = with pkgs; [
+                stack
                 haskell.compiler.ghc9122
 
                 pcre
