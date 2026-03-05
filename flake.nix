@@ -6,8 +6,9 @@
     inputs.nixpkgs.follows = "nixpkgs";
   };
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/release-25.11";
+  inputs.linux-dynamic-bundler.url = "github:codedownio/linux-dynamic-bundler";
 
-  outputs = { self, flake-utils, gitignore, haskellNix, nixpkgs }:
+  outputs = { self, flake-utils, gitignore, haskellNix, nixpkgs, linux-dynamic-bundler }:
     flake-utils.lib.eachSystem ["x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin"] (system:
       let
         compiler-nix-name = "ghc9122";
@@ -134,16 +135,11 @@
             darwin = flakeDarwin.packages."cpp-notebook-language-server:exe:cpp-notebook-language-server";
             aarch64Linux = let
               executable = flakeAarch64Linux.packages."cpp-notebook-language-server:exe:cpp-notebook-language-server";
-              libs = pkgs.callPackage ./nix/dynamic-aarch64-closure.nix {
-                inherit executable;
-                executableName = "cpp-notebook-language-server";
-                pkgsCross = pkgs.pkgsCross.aarch64-multiplatform;
-              };
-            in pkgs.runCommand "cpp-notebook-language-server-aarch64-dynamic" { passthru = { inherit (executable) version; }; } ''
-                 mkdir -p $out/bin
-                 cp -r ${executable}/bin/* $out/bin
-                 cp -r ${libs}/lib/* $out/bin
-               '';
+            in linux-dynamic-bundler.lib.bundle {
+              inherit pkgs;
+              binaryDrv = executable;
+              binaryName = "cpp-notebook-language-server";
+            };
             staticAarch64Linux = flakeStaticAarch64Linux.packages."cpp-notebook-language-server:exe:cpp-notebook-language-server";
 
             grandCombinedGithubArtifacts = pkgs.symlinkJoin {
