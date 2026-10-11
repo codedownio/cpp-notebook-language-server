@@ -3,6 +3,7 @@
 ## Unreleased changes
 
 * Support textDocument/inlayHint and textDocument/onTypeFormatting
+* Map code action edits back to the notebook, instead of returning the shadow file's uri and lines
 
 ## 0.2.2.0
 
