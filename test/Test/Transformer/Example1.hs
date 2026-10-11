@@ -71,9 +71,7 @@ spec = describe "Example1" $ do
     it "clamps column to 0 when untransforming from indentation area" $ do
       let inputDoc = listToDoc (T.splitOn "\n" testCode)
       (_, sifter :: DeclarationSifter, _) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
-      let params = DeclarationSifterParams "cling-parser" "__notebook_exec"
-
-      Just pos <- return $ untransformPosition params sifter (Position 13 1)
+      Just pos <- return $ untransformPosition sifter (Position 13 1)
       pos `shouldBe` Position 7 0
 
 main :: IO ()

@@ -68,8 +68,8 @@ instance Transformer DeclarationSifter where
                 sifter = mkSifter numOrigLines siftedIdxs nonSiftedIdxs Nothing
             return (listToDoc allLines, sifter, Right ())
 
-  transformPosition :: Params DeclarationSifter -> DeclarationSifter -> Position -> Maybe Position
-  transformPosition _ sifter (Position l c)
+  transformPosition :: DeclarationSifter -> Position -> Maybe Position
+  transformPosition sifter (Position l c)
     | origLine < 0 || origLine >= V.length (forward sifter) = Nothing
     | otherwise =
         let outputLine = forward sifter V.! origLine
@@ -78,8 +78,8 @@ instance Transformer DeclarationSifter where
     where
       origLine = fromIntegral l
 
-  untransformPosition :: Params DeclarationSifter -> DeclarationSifter -> Position -> Maybe Position
-  untransformPosition _ sifter (Position l c)
+  untransformPosition :: DeclarationSifter -> Position -> Maybe Position
+  untransformPosition sifter (Position l c)
     | outputLine < 0 || outputLine >= V.length (inverse sifter) = Nothing
     | origLine < 0 = Nothing  -- synthetic line
     | otherwise =

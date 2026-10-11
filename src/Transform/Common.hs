@@ -18,8 +18,8 @@ transformRange = transformRanged
 
 transformRanged :: (HasRange a Range) => CppNotebookTransformer -> a -> Maybe a
 transformRanged tx x = x
-  & traverseOf (range . start) (transformPosition (getParams tx) tx)
-  >>= traverseOf (range . end) (transformPosition (getParams tx) tx)
+  & traverseOf (range . start) (transformPosition tx)
+  >>= traverseOf (range . end) (transformPosition tx)
 
 -- * Untransform
 
@@ -28,13 +28,13 @@ untransformRange = untransformRanged
 
 untransformRanged :: (HasRange a Range) => CppNotebookTransformer -> a -> Maybe a
 untransformRanged tx x = x
-  & traverseOf (range . start) (untransformPosition (getParams tx) tx)
-  >>= traverseOf (range . end) (untransformPosition (getParams tx) tx)
+  & traverseOf (range . start) (untransformPosition tx)
+  >>= traverseOf (range . end) (untransformPosition tx)
 
 untransformRangedMaybe :: (HasRange a (Maybe Range)) => CppNotebookTransformer -> a -> Maybe a
 untransformRangedMaybe tx x = x
-  & traverseOf (range . _Just . start) (untransformPosition (getParams tx) tx)
-  >>= traverseOf (range . _Just . end) (untransformPosition (getParams tx) tx)
+  & traverseOf (range . _Just . start) (untransformPosition tx)
+  >>= traverseOf (range . _Just . end) (untransformPosition tx)
 
 -- | An inlay hint sits at a position rather than over a range, and carries its own edits for
 -- when the user accepts it. Drop the hint if its position isn't in the notebook; drop
@@ -42,7 +42,7 @@ untransformRangedMaybe tx x = x
 untransformInlayHint :: CppNotebookTransformer -> InlayHint -> Maybe InlayHint
 untransformInlayHint tx hint =
   hint
-    & traverseOf position (untransformPosition (getParams tx) tx)
+    & traverseOf position (untransformPosition tx)
     & fmap (over (textEdits . _Just) (mapMaybe (untransformRanged tx)))
 
 -- * Orphan (wish this was in lsp-types)

@@ -203,12 +203,12 @@ transformRoundTripCode testCode from to = do
   let inputDoc = listToDoc (T.splitOn "\n" testCode)
   (_, sifter :: DeclarationSifter, _) <- project (DeclarationSifterParams "cling-parser" "__notebook_exec") inputDoc
   let params = DeclarationSifterParams "cling-parser" "__notebook_exec"
-  transformRoundTrip params sifter from to
+  transformRoundTrip sifter from to
 
-transformRoundTrip :: (MonadIO m, MonadFail m) => Params DeclarationSifter -> DeclarationSifter -> Position -> Position -> m ()
-transformRoundTrip params sifter from to = do
-  Just pos <- return $ transformPosition params sifter from
+transformRoundTrip :: (MonadIO m, MonadFail m) => DeclarationSifter -> Position -> Position -> m ()
+transformRoundTrip sifter from to = do
+  Just pos <- return $ transformPosition sifter from
   pos `shouldBe` to
 
-  Just pos' <- return $ untransformPosition params sifter to
+  Just pos' <- return $ untransformPosition sifter to
   pos' `shouldBe` from

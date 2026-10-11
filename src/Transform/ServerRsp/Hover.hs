@@ -64,7 +64,7 @@ fixupDocumentReferences' docRegex transformer t =
   where
     transformGroup :: CppNotebookTransformer -> [Text] -> n [Text]
     transformGroup transformer orig@[(readMay . T.unpack) -> Just line, (readMay . T.unpack) -> Just ch] = do
-      case untransformPosition (getParams transformer) transformer (Position (line - 1) (ch - 1)) of
+      case untransformPosition transformer (Position (line - 1) (ch - 1)) of
         Nothing -> return orig
         Just (Position line' ch') -> return [T.pack $ show (line' + 1), T.pack $ show (ch' + 1)]
 
