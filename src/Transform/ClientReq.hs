@@ -73,7 +73,7 @@ doTransformUriAndPosition :: forall m n a. (
   ) => MessageParams m -> DocumentState -> n (MessageParams m)
 doTransformUriAndPosition params' (DocumentState {transformer=tx, newUri}) = do
   let params = params' & set (textDocument . uri) newUri
-  case transformPosition (getParams tx) tx (params ^. position) of
+  case transformPosition tx (params ^. position) of
     Nothing -> do
       logWarnN [i|Couldn't transform position #{params ^. position}|]
       return params
