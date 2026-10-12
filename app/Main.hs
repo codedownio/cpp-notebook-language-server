@@ -33,18 +33,21 @@ import UnliftIO.Directory
 import UnliftIO.Exception
 import UnliftIO.Process
 
-import Transform.ClientNot
-import Transform.ClientReq
-import Transform.ClientRsp
-import Transform.ServerNot
-import Transform.ServerReq
-import Transform.ServerRsp
-import Transform.Util
+import Language.LSP.NotebookLanguageServer.Transform.ClientNot
+import Language.LSP.NotebookLanguageServer.Transform.ClientReq
+import Language.LSP.NotebookLanguageServer.Transform.ClientRsp
+import Language.LSP.NotebookLanguageServer.Transform.ServerNot
+import Language.LSP.NotebookLanguageServer.Transform.ServerReq
+import Language.LSP.NotebookLanguageServer.Transform.ServerRsp
+import Language.LSP.NotebookLanguageServer.Transform.Util
 
-import Parsing
-import Process
-import RequestMap
+import Language.LSP.NotebookLanguageServer.Parsing
+import Language.LSP.NotebookLanguageServer.Process
+import Language.LSP.NotebookLanguageServer.RequestMap
+import Language.LSP.Notebook
 import Streams
+import Language.LSP.NotebookLanguageServer.Config
+import Transform.Config
 
 
 data Options = Options {
@@ -141,20 +144,21 @@ main = do
         , _message = T.decodeUtf8 $ fromLogStr msg
         }
 
-  transformerState <- newTransformerState optDidSaveDebouncePeriodMs
+  let config = cppNotebookConfig optDidSaveDebouncePeriodMs
+  transformerState <- newTransformerState
 
   flip runLoggingT logFn $ filterLogger logFilterFn $ flip runReaderT transformerState $
-    withAsync (readWrappedOut optDebugServerReads clientReqMap serverReqMap wrappedOut sendToStdout) $ \_wrappedOutAsync ->
+    withAsync (readWrappedOut config optDebugServerReads clientReqMap serverReqMap wrappedOut sendToStdout) $ \_wrappedOutAsync ->
       withAsync (readWrappedErr wrappedErr) $ \_wrappedErrAsync ->
-        withAsync (forever $ handleStdin optDebugServerWrites optDebugClientReads wrappedIn clientReqMap serverReqMap) $ \_stdinAsync -> do
+        withAsync (forever $ handleStdin config optDebugServerWrites optDebugClientReads wrappedIn clientReqMap serverReqMap) $ \_stdinAsync -> do
           waitForProcess p >>= \case
             ExitFailure n -> logErrorN [i|clangd subprocess exited with code #{n}|]
             ExitSuccess -> logInfoN [i|clangd subprocess exited successfully|]
 
 handleStdin :: forall m. (
-  MonadLoggerIO m, MonadReader TransformerState m, MonadUnliftIO m, MonadFail m
-  ) => Bool -> Bool -> Handle -> MVar ClientRequestMap -> MVar ServerRequestMap -> m ()
-handleStdin debugServerWrites debugClientReads wrappedIn clientReqMap serverReqMap = do
+  MonadLoggerIO m, MonadReader (TransformerState CppNotebookTransformer) m, MonadUnliftIO m, MonadFail m
+  ) => NotebookConfig CppNotebookTransformer -> Bool -> Bool -> Handle -> MVar ClientRequestMap -> MVar ServerRequestMap -> m ()
+handleStdin config debugServerWrites debugClientReads wrappedIn clientReqMap serverReqMap = do
   (A.eitherDecode <$> liftIO (parseStream stdin)) >>= \case
     Left err -> logErr [i|Couldn't decode incoming message: #{err}|]
     Right (x :: A.Value) -> do
@@ -171,9 +175,9 @@ handleStdin debugServerWrites debugClientReads wrappedIn clientReqMap serverReqM
           modifyMVar_ clientReqMap $ \m -> case updateClientRequestMap m msgId (SMethodAndParams meth (msg ^. Lens.params)) of
             Just m' -> return m'
             Nothing -> return m
-          transformClientReq meth msg >>= writeToServerHandle wrappedIn . A.encode
+          transformClientReq config meth msg >>= writeToServerHandle wrappedIn . A.encode
         Right (ClientToServerNot meth msg) ->
-          transformClientNot sendExtraNotification meth msg >>= writeToServerHandle wrappedIn . A.encode
+          transformClientNot config sendExtraNotification meth msg >>= writeToServerHandle wrappedIn . A.encode
   where
     writeToServerHandle :: Handle -> BL.ByteString -> m ()
     writeToServerHandle h bs = do
@@ -185,9 +189,9 @@ handleStdin debugServerWrites debugClientReads wrappedIn clientReqMap serverReqM
       liftIO $ writeToHandle wrappedIn $ A.encode msg
 
 readWrappedOut :: (
-  MonadUnliftIO m, MonadLoggerIO m, MonadReader TransformerState m, MonadFail m
-  ) => Bool -> MVar ClientRequestMap -> MVar ServerRequestMap -> Handle -> (forall a. ToJSON a => a -> m ()) -> m b
-readWrappedOut debugServerReads clientReqMap serverReqMap wrappedOut sendToStdout = forever $ do
+  MonadUnliftIO m, MonadLoggerIO m, MonadReader (TransformerState CppNotebookTransformer) m, MonadFail m
+  ) => NotebookConfig CppNotebookTransformer -> Bool -> MVar ClientRequestMap -> MVar ServerRequestMap -> Handle -> (forall a. ToJSON a => a -> m ()) -> m b
+readWrappedOut config debugServerReads clientReqMap serverReqMap wrappedOut sendToStdout = forever $ do
   (A.eitherDecode <$> liftIO (parseStream wrappedOut)) >>= \case
     Left err -> logErr [i|Couldn't decode wrapped output: #{err}|]
     Right (x :: A.Value) -> do
@@ -206,7 +210,7 @@ readWrappedOut debugServerReads clientReqMap serverReqMap wrappedOut sendToStdou
             Nothing -> return m
           sendToStdout (transformServerReq meth msg)
         Right (ServerToClientRsp meth initialParams msg) ->
-          transformServerRsp meth initialParams msg >>= sendToStdout
+          transformServerRsp config meth initialParams msg >>= sendToStdout
 
 readWrappedErr :: MonadLoggerIO m => Handle -> m ()
 readWrappedErr wrappedErr = forever $ do
