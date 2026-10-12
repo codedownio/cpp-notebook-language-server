@@ -95,7 +95,7 @@ packages:
     git: https://github.com/codedownio/lsp-test-helpers.git
 snapshots:
 - completed:
-    sha256: 2dead96d1a0217c9c8f84bdb6c694bfc7542ccc5a09bbc8f648ebc1cdd9b6d2f
-    size: 705813
-    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/nightly/2025/11/19.yaml
-  original: nightly-2025-11-19
+    sha256: e532f0987cce63d549ae1ac942f7e52c91712c95c36447756a60e9279a68626d
+    size: 739226
+    url: https://raw.githubusercontent.com/commercialhaskell/stackage-snapshots/master/nightly/2026/4/19.yaml
+  original: nightly-2026-04-19
