@@ -8,6 +8,7 @@ module Language.LSP.Transformer (
   Doc
 
   , Transformer(..)
+  , ProjectIn(..)
   , (:>)(..)
   , defaultHandleDiff
 
@@ -39,29 +40,27 @@ type Doc = Rope.Rope
 class Transformer a where
   type Params a
 
-  getParams :: a -> Params a
+  unproject :: a -> Doc -> Maybe Doc
+  unproject _ _ = Nothing
 
-  project :: MonadIO m => Params a -> Doc -> m (Doc, a, Either Text ())
+  transformPosition :: a -> Position -> Maybe Position
 
-  handleDiffMulti :: MonadIO m => Params a -> Doc -> [TextDocumentContentChangeEvent] -> a -> m ([TextDocumentContentChangeEvent], a)
+  untransformPosition :: a -> Position -> Maybe Position
+
+class Transformer a => ProjectIn m a where
+  project :: Params a -> Doc -> m (Doc, a, Either Text ())
+
+  handleDiffMulti :: Monad m => Params a -> Doc -> [TextDocumentContentChangeEvent] -> a -> m ([TextDocumentContentChangeEvent], a)
   handleDiffMulti params before changes tx = do
-    result <- foldM f ([], before, tx) changes
-    let (finalChanges, _finalLines, finalTx) = result
+    (finalChanges, _finalLines, finalTx) <- foldM f ([], before, tx) changes
     return (finalChanges, finalTx)
     where
-      f :: MonadIO m => ([TextDocumentContentChangeEvent], Doc, a) -> TextDocumentContentChangeEvent -> m ([TextDocumentContentChangeEvent], Doc, a)
       f (changesSoFar, curLines, txSoFar) change = do
         (newChanges, tx') <- handleDiff params curLines change txSoFar
         return (changesSoFar <> newChanges, applyChanges [change] curLines, tx')
 
-  handleDiff :: MonadIO m => Params a -> Doc -> TextDocumentContentChangeEvent -> a -> m ([TextDocumentContentChangeEvent], a)
+  handleDiff :: Monad m => Params a -> Doc -> TextDocumentContentChangeEvent -> a -> m ([TextDocumentContentChangeEvent], a)
   handleDiff = defaultHandleDiff
-
-  -- No 'Params' here: no transformer has ever needed them to map a position, and threading
-  -- them meant every caller had to be able to build a 'Params'.
-  transformPosition :: a -> Position -> Maybe Position
-
-  untransformPosition :: a -> Position -> Maybe Position
 
 data (a :: Type) :> (b :: Type) = a :> b
   deriving Show
@@ -69,24 +68,26 @@ infixr :>
 
 instance (Transformer a, Transformer b) => Transformer (a :> b) where
   type Params (a :> b) = Params a :> Params b
-  getParams (x :> y) = getParams x :> getParams y
+  unproject (x :> y) lines = unproject y lines >>= unproject x
+  transformPosition (x :> y) p = transformPosition x p >>= transformPosition y
+  untransformPosition (x :> y) p = untransformPosition y p >>= untransformPosition x
+
+instance (ProjectIn m a, ProjectIn m b, Monad m) => ProjectIn m (a :> b) where
   project (xParams :> yParams) lines = do
     (lines', x, eitherErr1) <- project xParams lines
     (lines'', y, eitherErr2) <- project yParams lines'
     let overallErr = case lefts [eitherErr1, eitherErr2] of
           [] -> Right ()
-          xs -> Left (T.intercalate "; " xs)
+          errs -> Left (T.intercalate "; " errs)
     return (lines'', x :> y, overallErr)
   handleDiff (xParams :> yParams) before change (x :> y) = do
     (change', x') <- handleDiff xParams before change x
-    (beforeTransformed, _, _eitherErr1) <- project @a xParams before
+    (beforeTransformed, _, _err) <- project @m @a xParams before
     (change'', y') <- handleDiffMulti yParams beforeTransformed change' y
     return (change'', x' :> y')
-  transformPosition (x :> y) p = transformPosition x p >>= transformPosition y
-  untransformPosition (x :> y) p = untransformPosition y p >>= untransformPosition x
 
 -- Default implementation uses diff.
-defaultHandleDiff :: forall a m. (Transformer a, MonadIO m) => Params a -> Doc -> TextDocumentContentChangeEvent -> a -> m ([TextDocumentContentChangeEvent], a)
+defaultHandleDiff :: forall m a. (ProjectIn m a, Monad m) => Params a -> Doc -> TextDocumentContentChangeEvent -> a -> m ([TextDocumentContentChangeEvent], a)
 defaultHandleDiff params before change _transformer = do
   (before', _ :: a, _eitherErrBefore) <- project params before
   let after = applyChanges [change] before

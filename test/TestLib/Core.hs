@@ -10,12 +10,12 @@ import Test.QuickCheck as Q
 
 
 testChange :: forall a m. (
-  Transformer a, Eq a, Show a, MonadIO m
+  ProjectIn m a, Eq a, Show a, MonadIO m
   ) => Params a -> Doc -> TextDocumentContentChangeEvent -> m Property
 testChange = testChange' @a (const [])
 
 testChange' :: forall a m. (
-  Transformer a, Eq a, Show a, MonadIO m
+  ProjectIn m a, Eq a, Show a, MonadIO m
   ) => ([TextDocumentContentChangeEvent] -> [Property]) -> Params a -> Doc -> TextDocumentContentChangeEvent -> m Property
 testChange' extraProps params docLines change = do
   -- Expected un-projected document after the change

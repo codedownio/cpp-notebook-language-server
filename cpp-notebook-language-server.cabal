@@ -42,6 +42,7 @@ library
       FlexibleInstances
       LambdaCase
       ViewPatterns
+      MultiParamTypeClasses
       MultiWayIf
       TupleSections
       NumericUnderscores
@@ -95,6 +96,7 @@ executable cpp-notebook-language-server
       FlexibleInstances
       LambdaCase
       ViewPatterns
+      MultiParamTypeClasses
       MultiWayIf
       TupleSections
       NumericUnderscores
@@ -152,6 +154,7 @@ test-suite cpp-notebook-language-server-test
       FlexibleInstances
       LambdaCase
       ViewPatterns
+      MultiParamTypeClasses
       MultiWayIf
       TupleSections
       NumericUnderscores
