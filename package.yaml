@@ -8,7 +8,6 @@ extra-source-files:
 dependencies:
 - base >= 4.7 && < 5
 - lsp-types >= 2.0.0.1
-- monad-logger
 - string-interpolate
 - text
 - unliftio
@@ -38,22 +37,10 @@ library:
   source-dirs: src
   dependencies:
   - aeson
-  - auto-update
   - bytestring
   - containers
-  - filepath
-  - lens
-  - lens-regex-pcre
-  - mtl
-  - myers-diff
-  - network-uri
+  - notebook-language-server-core
   - pcre-light
-  - random
-  - safe
-  - text-rope
-  - time
-  - unliftio-core
-  - uuid
   - vector
 
 executables:
@@ -70,12 +57,12 @@ executables:
     dependencies:
     - aeson
     - bytestring
-    - lens
-    - mtl
-    - optparse-applicative
-    - process
-    - retry
     - cpp-notebook-language-server
+    - lens
+    - monad-logger
+    - mtl
+    - notebook-language-server-core
+    - optparse-applicative
     - safe
     - unix
     - unliftio-core
@@ -92,7 +79,6 @@ tests:
     - -O2
     - -W
     dependencies:
-    - QuickCheck
     - containers
     - cpp-notebook-language-server
     - directory
@@ -105,6 +91,8 @@ tests:
     - monad-logger
     - mtl
     - myers-diff
+    - notebook-language-server-core
+    - QuickCheck
     - quickcheck-instances
     - sandwich
     - sandwich-contexts
