@@ -14,11 +14,17 @@ jobs:
     steps:
     - uses: actions/checkout@v6
 
+    # Not hashFiles(): the runner evaluates that by spawning its bundled node, and the
+    # github-runner package we deploy ships only externals/node24 while still asking for node20.
+    - name: Compute the stack cache key
+      id: stack-cache-key
+      run: echo "value=${{ runner.os }}-stack-$(sha256sum stack.yaml stack.yaml.lock package.yaml | sha256sum | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
     - uses: actions/cache@v5
       name: Cache ~/.stack
       with:
         path: ~/.stack
-        key: ${{ runner.os }}-stack-${{ hashFiles('stack.yaml', 'stack.yaml.lock', 'package.yaml') }}
+        key: ${{ steps.stack-cache-key.outputs.value }}
 
     - name: Build
       run: |
