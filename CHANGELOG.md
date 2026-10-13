@@ -1,8 +1,10 @@
 # Changelog for cpp-notebook-language-server
 
-## Unreleased changes
+## 0.2.3.0
 
-* Support textDocument/inlayHint and textDocument/onTypeFormatting
+* Support textDocument/inlayHint, textDocument/onTypeFormatting and textDocument/formatting
+* Map code action edits back to the notebook instead of the shadow file
+* Transform codeLens/resolve, so lens titles that the server defers resolve correctly
 
 ## 0.2.2.0
 
