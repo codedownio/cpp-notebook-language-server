@@ -132,11 +132,6 @@
             dynamicWrapped = mkWrapped dynamic;
             staticWrapped = mkWrapped static;
 
-            # The test suite binary, with cling-parser on PATH the way the real binary has it.
-            # CI builds this and runs it as an ordinary step rather than as a flake check: the
-            # suite shells out to nix (clang-tools, print-basic-path, path-info) and to bwrap,
-            # none of which work inside a build sandbox. The server under test is already built
-            # by Nix either way -- see introduceCnls, which getFlake's staticWrapped.
             tests = pkgs.runCommand "cpp-notebook-language-server-tests" {
               nativeBuildInputs = [pkgs.makeWrapper];
             } ''
