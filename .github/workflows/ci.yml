@@ -5,41 +5,46 @@ on:
   workflow_dispatch:
 
 jobs:
-  stack:
-    name: stack
-    runs-on: [self-hosted, Linux, desktop]
-    strategy:
-      fail-fast: false
-
-    steps:
-    - uses: actions/checkout@v6
-
-    # Not hashFiles(): the runner evaluates that by spawning its bundled node, and the
-    # github-runner package we deploy ships only externals/node24 while still asking for node20.
-    - name: Compute the stack cache key
-      id: stack-cache-key
-      run: echo "value=${{ runner.os }}-stack-$(sha256sum stack.yaml stack.yaml.lock package.yaml | sha256sum | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
-
-    - uses: actions/cache@v5
-      name: Cache ~/.stack
-      with:
-        path: ~/.stack
-        key: ${{ steps.stack-cache-key.outputs.value }}
-
-    - name: Build
-      run: |
-        nix develop -c stack build --test --bench --no-run-tests --no-run-benchmarks
-
-    - name: Test
-      run: |
-        nix develop -c stack test --test-arguments --print
-
-    - name: Upload test logs
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: test-runs
-        path: test_runs/
+# Disabled: this job kept failing on a corrupt ~/.stack on the self-hosted runners (see
+# the cache comment below). Nix builds the package in the `nix` job; nothing runs the test
+# suite until this comes back, ideally on an ephemeral ARC runner where the cache is safe.
+#  stack:
+#    name: stack
+#    runs-on: [self-hosted, Linux, desktop]
+#    strategy:
+#      fail-fast: false
+#
+#    steps:
+#    - uses: actions/checkout@v6
+#
+#    # actions/cache assumes it is extracting into an empty directory. On a self-hosted
+#    # runner it lands on top of the ~/.stack the last job left behind, and the merged
+#    # package db registers libraries whose files aren't there: "There are files missing
+#    # in the 'aeson-2.2.4.1' package".
+#    - name: Compute the stack cache key
+#      id: stack-cache-key
+#      run: echo "value=${{ runner.os }}-stack-$(sha256sum stack.yaml stack.yaml.lock package.yaml | sha256sum | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+#
+#    - uses: actions/cache@v5
+#      name: Cache ~/.stack
+#      with:
+#        path: ~/.stack
+#        key: ${{ steps.stack-cache-key.outputs.value }}
+#
+#    - name: Build
+#      run: |
+#        nix develop -c stack build --test --bench --no-run-tests --no-run-benchmarks
+#
+#    - name: Test
+#      run: |
+#        nix develop -c stack test --test-arguments --print
+#
+#    - name: Upload test logs
+#      if: always()
+#      uses: actions/upload-artifact@v4
+#      with:
+#        name: test-runs
+#        path: test_runs/
 
   no-gmp:
     runs-on: [self-hosted, Linux, desktop]
