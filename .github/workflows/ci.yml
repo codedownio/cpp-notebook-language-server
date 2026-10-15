@@ -5,9 +5,9 @@ on:
   workflow_dispatch:
 
 jobs:
-# Disabled: this job kept failing on a corrupt ~/.stack on the self-hosted runners (see
-# the cache comment below). Nix builds the package in the `nix` job; nothing runs the test
-# suite until this comes back, ideally on an ephemeral ARC runner where the cache is safe.
+# Disabled: this job kept failing on a corrupt ~/.stack on the self-hosted runners (see the
+# cache comment below). The `tests` job below runs the same suite from a Nix-built binary, so
+# nothing is lost; this is only still here in case we want the plain stack path back.
 #  stack:
 #    name: stack
 #    runs-on: [self-hosted, Linux, desktop]
@@ -45,6 +45,27 @@ jobs:
 #      with:
 #        name: test-runs
 #        path: test_runs/
+
+  tests:
+    name: tests
+    runs-on: [self-hosted, Linux, desktop]
+    strategy:
+      fail-fast: false
+
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Run tests
+      run: |
+        TESTS=$(nix build --no-link --print-out-paths .#tests)/bin/cpp-notebook-language-server-test
+        "$TESTS" --print
+
+    - name: Upload test logs
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-runs
+        path: test_runs/
 
   no-gmp:
     runs-on: [self-hosted, Linux, desktop]
