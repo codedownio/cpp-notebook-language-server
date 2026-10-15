@@ -18,6 +18,7 @@ cppNotebookConfig :: Int -> NotebookConfig CppNotebookTransformer
 cppNotebookConfig didSaveDebounceMs = NotebookConfig {
   notebookConfigHandles = const True
   , notebookConfigDidSaveDebounceMs = Just didSaveDebounceMs
+  , notebookConfigHandlesFormatting = False
   , notebookConfigTransformerParamsFor = \u -> if isNotebook u then transformerParams else idTransformerParams
   , notebookConfigMakeShadowDocument = makeShadowDocument
   , notebookConfigUnopenedUri = addExtensionToUri ".cpp"
