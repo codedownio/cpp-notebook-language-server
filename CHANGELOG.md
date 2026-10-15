@@ -1,5 +1,9 @@
 # Changelog for cpp-notebook-language-server
 
+## 0.2.3.2
+
+* Untransform workspace/applyEdit, which named the shadow document and so was refused by the client
+
 ## 0.2.3.1
 
 * Fix textDocument/formatting, which silently did nothing in 0.2.3.0. Formatting edits are now
