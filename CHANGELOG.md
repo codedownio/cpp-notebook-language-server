@@ -1,5 +1,10 @@
 # Changelog for cpp-notebook-language-server
 
+## 0.2.3.1
+
+* Fix textDocument/formatting, which silently did nothing in 0.2.3.0. Formatting edits are now
+  passed through untouched, so plain files format and notebooks are left alone.
+
 ## 0.2.3.0
 
 * Support textDocument/inlayHint, textDocument/onTypeFormatting and textDocument/formatting
