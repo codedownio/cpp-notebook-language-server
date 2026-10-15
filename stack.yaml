@@ -10,7 +10,7 @@ system-ghc: true
 
 extra-deps:
 - git: https://github.com/codedownio/notebook-language-server-core.git
-  commit: cb55077c20b22919956d0fcfa4287c5cb82c8fa2
+  commit: 89efae37727681af9f38db4c8326b7ff5be23dbb
 
 - git: https://github.com/codedownio/sandwich
   # long-running-nodes branch
