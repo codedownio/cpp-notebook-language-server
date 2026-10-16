@@ -105,20 +105,22 @@
 
         testExe = flake.packages."cpp-notebook-language-server:test:cpp-notebook-language-server-test";
 
+        devShellInputs = with pkgs; [
+          stack
+          haskell.compiler.ghc9124
+
+          pcre
+          zlib
+
+          cling-parser
+        ];
+
       in
         {
           devShells = {
             default = pkgs.mkShell {
               NIX_PATH = "nixpkgs=${pkgs.path}";
-              buildInputs = with pkgs; [
-                stack
-                haskell.compiler.ghc9124
-
-                pcre
-                zlib
-
-                cling-parser
-              ];
+              buildInputs = devShellInputs;
             };
           };
 
@@ -174,6 +176,15 @@
               (echo "$(ldd ${dynamic}/bin/cpp-notebook-language-server)" | grep libgmp) && exit 1
 
               exit 0
+            '';
+
+            gcroots = pkgs.writeText "cpp-notebook-language-server-gc-roots" ''
+              ${pkgs.symlinkJoin {
+                name = "cpp-notebook-language-server-deps";
+                paths = dynamic.buildInputs ++ dynamic.nativeBuildInputs
+                     ++ static.buildInputs ++ static.nativeBuildInputs
+                     ++ devShellInputs;
+              }}
             '';
 
             nixpkgsPath = pkgs.writeShellScriptBin "nixpkgsPath.sh" "echo -n ${pkgs.path}";
