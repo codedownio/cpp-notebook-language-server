@@ -1,5 +1,10 @@
 # Changelog for cpp-notebook-language-server
 
+## 0.2.4.0
+
+* Transform textDocument/selectionRange, textDocument/semanticTokens and the goto family, which reached the client in shadow coordinates
+* Transform textDocument/rename, prepareRename, references, signatureHelp and declaration, which reached the server naming the notebook
+
 ## 0.2.3.2
 
 * Untransform workspace/applyEdit, which named the shadow document and so was refused by the client
