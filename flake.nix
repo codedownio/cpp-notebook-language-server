@@ -31,6 +31,8 @@
         flakeAarch64Linux = (pkgs.pkgsCross.aarch64-multiplatform.hixProject compiler-nix-name).flake {};
         flakeStaticAarch64Linux = (pkgs.pkgsCross.aarch64-multiplatform-musl.hixProject compiler-nix-name).flake {};
 
+        aarch64LinuxExe = flakeAarch64Linux.packages."cpp-notebook-language-server:exe:cpp-notebook-language-server";
+
         packageForGitHub = packageForGitHub' system;
 
         packageForGitHub' = systemToUse: cnls: pkgs.runCommand "cpp-notebook-language-server-${cnls.version}-${systemToUse}" {} ''
@@ -146,7 +148,7 @@
             dynamic = flake.packages."cpp-notebook-language-server:exe:cpp-notebook-language-server";
             darwin = flakeDarwin.packages."cpp-notebook-language-server:exe:cpp-notebook-language-server";
             aarch64Linux = let
-              executable = flakeAarch64Linux.packages."cpp-notebook-language-server:exe:cpp-notebook-language-server";
+              executable = aarch64LinuxExe;
             in linux-dynamic-bundler.lib.bundle {
               inherit pkgs;
               binaryDrv = executable;
@@ -183,6 +185,7 @@
                 name = "cpp-notebook-language-server-deps";
                 paths = dynamic.buildInputs ++ dynamic.nativeBuildInputs
                      ++ static.buildInputs ++ static.nativeBuildInputs
+                     ++ aarch64LinuxExe.buildInputs ++ aarch64LinuxExe.nativeBuildInputs
                      ++ devShellInputs;
               }}
             '';
