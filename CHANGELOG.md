@@ -1,5 +1,10 @@
 # Changelog for cpp-notebook-language-server
 
+## 0.2.7.0
+
+* Transform the call and type hierarchies, whose answers named the shadow document and so couldn't be followed
+* Replace a document symbol we can't place with its children, instead of dropping both
+
 ## 0.2.6.0
 
 * Write the shadow document to disk before the server is told about it, rather than from the first save onwards
