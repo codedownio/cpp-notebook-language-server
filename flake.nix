@@ -181,7 +181,9 @@
             '';
 
             gcroots = let
-              inputsOf = d: d.buildInputs ++ d.nativeBuildInputs;
+              # Our own components rebuild on any source change, so only the deps are worth rooting.
+              inputsOf = d: pkgs.lib.filter (p: !(pkgs.lib.hasInfix "cpp-notebook-language-server" (p.name or "")))
+                              (d.buildInputs ++ d.nativeBuildInputs);
               # The cross builds can't be made from darwin, where the native build is what matters.
               hostInputs = if pkgs.stdenv.hostPlatform.isDarwin
                            then inputsOf dynamic
