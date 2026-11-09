@@ -1,5 +1,9 @@
 # Changelog for cpp-notebook-language-server
 
+## 0.2.9.0
+
+* Transform textDocument/foldingRange, so a cell's folds land on the notebook's lines
+
 ## 0.2.8.0
 
 * Transform textDocument/diagnostic (pull diagnostic requests)
